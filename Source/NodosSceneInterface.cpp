@@ -499,13 +499,13 @@ void NodosSceneInterface::Initialize(ID3D12Device* device, ID3D12CommandQueue* c
 	if (m_InternalState->NodosSdkDllPath.empty() || !FileExists(m_InternalState->NodosSdkDllPath))
 	{
 		std::filesystem::path bundleRoot = exeDir;
-		for (int i = 0; i < 3; ++i)
+		for (int i = 0; i < 4; ++i)
 			bundleRoot = bundleRoot.parent_path();
-		std::string appSdkVersion = "20.0";
+		std::string appSdkVersion = "18.4";
 		std::optional<std::string> sdkPathOpt = GetSdkPathFromNosman(bundleRoot.string(), appSdkVersion);
 		if (sdkPathOpt)
 		{
-			std::string candidate = *sdkPathOpt + "\\Binaries\\nosAppSDK.dll";
+			std::string candidate = *sdkPathOpt + "\\bin\\nosAppSDK.dll";
 			if (FileExists(candidate))
 				m_InternalState->NodosSdkDllPath = candidate;
 		}
