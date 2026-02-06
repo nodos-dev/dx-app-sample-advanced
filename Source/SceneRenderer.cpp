@@ -461,6 +461,19 @@ void SceneRenderer::CreateOutputTexture(ID3D12Device* device, uint32_t width, ui
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		&clearValue,
 		IID_PPV_ARGS(&m_OutputTexture));
+
+	// Create RTV heap for output texture
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+	rtvHeapDesc.NumDescriptors = 1;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_RTVHeap));
+
+	// Create RTV for output texture
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = m_OutputFormat;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	device->CreateRenderTargetView(m_OutputTexture.Get(), &rtvDesc, m_RTVHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 void SceneRenderer::CreateDepthStencilBuffer(ID3D12Device* device, uint32_t width, uint32_t height)
@@ -515,7 +528,7 @@ void SceneRenderer::CreateDepthStencilBuffer(ID3D12Device* device, uint32_t widt
 	device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), &dsvDesc, m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
-void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* outputTexture, const D3D12_CPU_DESCRIPTOR_HANDLE& rtvHandle)
+void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 {
 	using namespace DirectX;
 
@@ -525,6 +538,9 @@ void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* o
 	
 	cmdList->RSSetViewports(1, &viewport);
 	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	// Get RTV handle for our internal output texture
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = m_RTVHeap->GetCPUDescriptorHandleForHeapStart();
 
 	// Clear render target
 	float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };

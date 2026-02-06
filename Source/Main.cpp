@@ -21,6 +21,7 @@ using Microsoft::WRL::ComPtr;
 #include <chrono>
 
 #include "SceneRenderer.h"
+#include "NodosSceneInterface.h"
 
 #define DX12_ENABLE_DEBUG_LAYER
 
@@ -84,9 +85,10 @@ struct SimpleApp
 
 	// Scene Renderer
 	std::unique_ptr<nos::dxapp::SceneRenderer> SceneRenderer;
+	std::unique_ptr<nos::dxapp::NodosSceneInterface> NodosInterface;
 	float Time = 0.0f;
 
-	SimpleApp(HWND windowHandle, int width, int height, bool vsyncEnabled, std::optional<uint32_t> gpuIndex) :
+	SimpleApp(HWND windowHandle, int width, int height, bool vsyncEnabled, std::optional<uint32_t> gpuIndex, const std::string& sdkDllPath) :
 		Window{width, height, windowHandle},
 		Viewport{0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)},
 		ScissorRect{0, 0, static_cast<LONG>(width), static_cast<LONG>(height)},
@@ -162,7 +164,7 @@ struct SimpleApp
 		CreateSwapChain();
 		CreateCommandAllocatorsAndList();
 		CreateFence();
-		CreateScene();
+		CreateScene(sdkDllPath);
 	}
 
 	void CreateRTVHeap()
@@ -243,7 +245,7 @@ struct SimpleApp
 		WaitForGpu();
 	}
 
-	void CreateScene()
+	void CreateScene(const std::string& sdkDllPath)
 	{
 		SceneRenderer = std::make_unique<nos::dxapp::SceneRenderer>();
 		SceneRenderer->Initialize(Device.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, Window.Width, Window.Height);
@@ -281,6 +283,23 @@ struct SimpleApp
 			{1.0f, 1.0f, 1.0f},
 			{0.3f, 0.3f, 1.0f, 1.0f}  // Blue
 		);
+
+		// Initialize Nodos interface
+		try
+		{
+			NodosInterface = std::make_unique<nos::dxapp::NodosSceneInterface>(*SceneRenderer);
+			if (!sdkDllPath.empty())
+			{
+				NodosInterface->SetSdkDllPath(sdkDllPath);
+			}
+			NodosInterface->Initialize(Device.Get(), CmdQueue.Get(), DXGI_FORMAT_R8G8B8A8_UNORM);
+			std::cout << "Nodos interface initialized successfully" << std::endl;
+		}
+		catch (const std::exception& e)
+		{
+			std::cerr << "Failed to initialize Nodos interface: " << e.what() << std::endl;
+			NodosInterface.reset();
+		}
 	}
 
 	void WaitForGpu()
@@ -311,12 +330,15 @@ struct SimpleApp
 	{
 		Time += deltaTime;
 
-		// Rotate camera around scene
-		float radius = 7.0f;
-		float camX = radius * sin(Time * 0.5f);
-		float camZ = radius * cos(Time * 0.5f);
-		SceneRenderer->SetCameraPosition({camX, 3.0f, camZ});
-		SceneRenderer->SetCameraTarget({0.0f, 0.0f, 0.0f});
+		// Rotate camera around scene (only if Nodos is not synced)
+		if (!NodosInterface || !NodosInterface->IsSynced())
+		{
+			float radius = 7.0f;
+			float camX = radius * sin(Time * 0.5f);
+			float camZ = radius * cos(Time * 0.5f);
+			SceneRenderer->SetCameraPosition({camX, 3.0f, camZ});
+			SceneRenderer->SetCameraTarget({0.0f, 0.0f, 0.0f});
+		}
 
 		// Animate the red cube (index 1)
 		auto& redCube = SceneRenderer->GetObject(1);
@@ -337,35 +359,73 @@ struct SimpleApp
 
 	void Render()
 	{
+		// Nodos PreFrame (handles input sync and camera updates)
+		if (NodosInterface)
+			NodosInterface->PreFrame();
+
+		// If not synced with Nodos, ensure renderer is at swapchain resolution
+		if (!NodosInterface || !NodosInterface->IsSynced())
+		{
+			// Check if renderer needs to be resized to match swapchain
+			auto rendererDesc = SceneRenderer->GetOutputTexture()->GetDesc();
+			if (rendererDesc.Width != Window.Width || rendererDesc.Height != Window.Height)
+			{
+				WaitForGpu();
+				SceneRenderer->Resize(Window.Width, Window.Height);
+			}
+		}
+
 		// Reset command allocator and list
 		Must(CmdAllocators[SwapChainFrameIndex]->Reset());
 		Must(CmdList->Reset(CmdAllocators[SwapChainFrameIndex].Get(), nullptr));
 
-		// Transition swap chain to render target
-		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			SwapChainRTResources[SwapChainFrameIndex].Get(),
-			D3D12_RESOURCE_STATE_PRESENT,
-			D3D12_RESOURCE_STATE_RENDER_TARGET
-		);
-		CmdList->ResourceBarrier(1, &barrier);
+		// Render scene to SceneRenderer's internal texture
+		SceneRenderer->Render(CmdList.Get());
 
-		// Get RTV handle
-		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
-			RTVHeap->GetCPUDescriptorHandleForHeapStart(),
-			SwapChainFrameIndex,
-			RTVDescriptorSize
-		);
+		// Check if we can copy to swapchain (dimensions must match)
+		auto rendererDesc = SceneRenderer->GetOutputTexture()->GetDesc();
+		bool canCopyToSwapchain = (rendererDesc.Width == Window.Width && rendererDesc.Height == Window.Height);
 
-		// Render scene
-		SceneRenderer->Render(CmdList.Get(), SwapChainRTResources[SwapChainFrameIndex].Get(), rtvHandle);
+		if (canCopyToSwapchain)
+		{
+			// Copy from SceneRenderer output to swapchain
+			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SceneRenderer->GetOutputTexture(),
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_COPY_SOURCE
+			);
+			CmdList->ResourceBarrier(1, &barrier);
 
-		// Transition swap chain to present
-		barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			SwapChainRTResources[SwapChainFrameIndex].Get(),
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT
-		);
-		CmdList->ResourceBarrier(1, &barrier);
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SwapChainRTResources[SwapChainFrameIndex].Get(),
+				D3D12_RESOURCE_STATE_PRESENT,
+				D3D12_RESOURCE_STATE_COPY_DEST
+			);
+			CmdList->ResourceBarrier(1, &barrier);
+
+			// Copy the texture
+			CmdList->CopyResource(SwapChainRTResources[SwapChainFrameIndex].Get(), SceneRenderer->GetOutputTexture());
+
+			// Transition resources back
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SceneRenderer->GetOutputTexture(),
+				D3D12_RESOURCE_STATE_COPY_SOURCE,
+				D3D12_RESOURCE_STATE_RENDER_TARGET
+			);
+			CmdList->ResourceBarrier(1, &barrier);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SwapChainRTResources[SwapChainFrameIndex].Get(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_PRESENT
+			);
+			CmdList->ResourceBarrier(1, &barrier);
+		}
+		else
+		{
+			// Dimensions don't match (e.g., renderer at 1920x1080 for Nodos, swapchain at 1280x720)
+			// Keep swapchain in PRESENT state - it will show previous frame or black
+		}
 
 		// Execute command list
 		Must(CmdList->Close());
@@ -376,16 +436,27 @@ struct SimpleApp
 		Must(SwapChain->Present(EnableVsync ? 1 : 0, 0));
 
 		MoveToNextFrame();
+
+		// Nodos PostFrame (handles output sync)
+		if (NodosInterface)
+			NodosInterface->PostFrame();
 	}
 
 	void Destroy()
 	{
 		WaitForGpu();
+		
+		if (NodosInterface)
+		{
+			NodosInterface->Shutdown();
+			NodosInterface.reset();
+		}
+		
 		CloseHandle(FenceEvent);
 	}
 };
 
-int SimpleAppMain(int windowWidth, int windowHeight, std::optional<uint32_t> gpuIndex, bool vsync)
+int SimpleAppMain(int windowWidth, int windowHeight, std::optional<uint32_t> gpuIndex, bool vsync, const std::string& sdkDllPath)
 {
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN);
 
@@ -407,7 +478,7 @@ int SimpleAppMain(int windowWidth, int windowHeight, std::optional<uint32_t> gpu
 	SDL_GetWindowWMInfo(window, &wmInfo);
 	windowHandle = wmInfo.info.win.window;
 
-	SimpleApp app(windowHandle, windowWidth, windowHeight, vsync, gpuIndex);
+	SimpleApp app(windowHandle, windowWidth, windowHeight, vsync, gpuIndex, sdkDllPath);
 
 	// Main loop
 	SDL_Event event;
@@ -447,7 +518,8 @@ int main(int argc, char** argv)
 	std::optional<uint32_t> gpuIndex;
 	int windowWidth = 1280;
 	int windowHeight = 720;
-	bool vsync = true;
+	bool vsync = false;
+	std::string sdkDllPath;
 
 	if (argc > 1)
 	{
@@ -459,14 +531,14 @@ int main(int argc, char** argv)
 				windowWidth = std::atoi(argv[++i]);
 			else if (strcmp(argv[i], "--height") == 0 && i + 1 < argc)
 				windowHeight = std::atoi(argv[++i]);
-			else if (strcmp(argv[i], "--no-vsync") == 0)
-				vsync = false;
+			else if (strcmp(argv[i], "--sdk-dll") == 0 && i + 1 < argc)
+				sdkDllPath = argv[++i];
 			else
 				std::cerr << "Unknown argument: " << argv[i] << std::endl;
 		}
 	}
 
-	auto ret = SimpleAppMain(windowWidth, windowHeight, gpuIndex, vsync);
+	auto ret = SimpleAppMain(windowWidth, windowHeight, gpuIndex, vsync, sdkDllPath);
 
 #ifdef DX12_ENABLE_DEBUG_LAYER
 	if (ComPtr<IDXGIDebug1> pDebug = nullptr; SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug))))

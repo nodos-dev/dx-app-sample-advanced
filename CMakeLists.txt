@@ -12,6 +12,7 @@ message(STATUS "Nodos workspace directory: ${NODOS_WORKSPACE_DIR}")
 
 set(NODOS_PROCESS_SDK_VERSION "18.4" CACHE STRING "Version of Nodos SDK to use")
 set(NOS_SYS_VULKAN_VERSION "6.0" CACHE STRING "Version of nos.sys.vulkan module to use")
+set(NOS_REQUESTED_TRACK_VERSION "1.9" CACHE STRING "Version of nos.track module to use")
 # Nodos SDK Configuration
 if (EXISTS ${NODOS_WORKSPACE_DIR}/nodos${CMAKE_EXECUTABLE_SUFFIX})
     set(NOSMAN_WORKSPACE_DIR ${NODOS_WORKSPACE_DIR})
@@ -84,6 +85,10 @@ include(${NODOS_WORKSPACE_DIR}/Toolchain/CMake/Scripts/Projects.cmake)
 nos_get_module("nos.sys.vulkan" "${NOS_SYS_VULKAN_VERSION}" NOS_SYS_VULKAN_TARGET)
 message(STATUS "nos.sys.vulkan target: ${NOS_SYS_VULKAN_TARGET}")
 
+# Get nos.track
+nos_get_module("nos.track" "${NOS_REQUESTED_TRACK_VERSION}" NOS_TRACK_TARGET)
+message(STATUS "nos.track target: ${NOS_TRACK_TARGET}")
+
 add_library(nosAppSDK INTERFACE)
 target_include_directories(nosAppSDK INTERFACE ${NODOS_SDK_DIR}/include)
 
@@ -96,6 +101,7 @@ target_include_directories(NosDxAppSampleAdv PRIVATE Source)
 target_link_libraries(NosDxAppSampleAdv PRIVATE
     nosAppSDK
     ${NOS_SYS_VULKAN_TARGET}
+    ${NOS_TRACK_TARGET}
     d3d12 dxgi d3dcompiler
     SDL2-static
     DirectX-Headers

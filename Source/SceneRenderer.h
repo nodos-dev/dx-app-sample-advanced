@@ -76,7 +76,7 @@ public:
 	~SceneRenderer();
 
 	void Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, uint32_t width, uint32_t height);
-	void Render(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* outputTexture, const D3D12_CPU_DESCRIPTOR_HANDLE& rtvHandle);
+	void Render(ID3D12GraphicsCommandList* cmdList);
 	void Resize(uint32_t width, uint32_t height);
 
 	// Camera control
@@ -97,6 +97,7 @@ public:
 
 	// Output texture access
 	ID3D12Resource* GetOutputTexture() const { return m_OutputTexture.Get(); }
+	ID3D12Resource* GetDepthStencilBuffer() const { return m_DepthStencilBuffer.Get(); }
 
 private:
 	void CreateRootSignature(ID3D12Device* device);
@@ -134,6 +135,7 @@ private:
 
 	ComPtr<ID3D12Resource> m_OutputTexture;
 	ComPtr<ID3D12Resource> m_DepthStencilBuffer;
+	ComPtr<ID3D12DescriptorHeap> m_RTVHeap;
 	ComPtr<ID3D12DescriptorHeap> m_DSVHeap;
 
 	Camera m_Camera;
