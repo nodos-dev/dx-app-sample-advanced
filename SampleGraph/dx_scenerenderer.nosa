@@ -24,13 +24,12 @@
       { "name": "nos.display", "version": "0.4.0" },
       { "name": "nos.sys.mediaio", "version": "0.4.2" },
       { "name": "nos.filters", "version": "1.6.0" },
-      { "name": "nos.graphics", "version": "0.1.0" },
+      { "name": "nos.graphics", "version": "0.2.0" },
       { "name": "nos.noise", "version": "0.3.0" },
       { "name": "nos.reflect", "version": "1.7.13" },
       { "name": "nos.str", "version": "0.3.1" },
       { "name": "nos.test", "version": "42.0.0" },
       { "name": "nos.track", "version": "1.9.3" },
-      { "name": "nos.webrtc", "version": "1.2.3" },
       { "name": "nos.sys.animation", "version": "1.5.2" },
       { "name": "nos.sys.lino", "version": "1.0.6" },
       { "name": "nos.py", "version": "0.4.0" },
@@ -40,10 +39,99 @@
       { "name": "nos.sys.variables", "version": "1.0.1" },
       { "name": "nos.sys.ffmpeg.deps", "version": "7.1.0" }
     ] }, "graph": {
-    "id": "5d55280c-799d-4ab8-8ebc-62092ffd118e",
+    "id": "c806f252-e757-4c0e-b173-6dbbd070d360",
     "pos": { "x": 0.0, "y": 0.0 },
     "contents_type": "Graph",
     "contents": { "nodes": [
+        {
+          "id": "81220d48-5216-4b74-aa38-a39ebe1b1467",
+          "name": "TrackToView",
+          "class_name": "nos.graphics.TrackToView",
+          "pins": [
+            {
+              "id": "f3a10eac-4b2e-49e9-aa9d-9372633d2363",
+              "name": "Track",
+              "type_name": "zd.sys.track.Track",
+              "show_as": "INPUT_PIN",
+              "can_show_as": "INPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": {
+                "location": { "x": 384.598999, "y": -196.0, "z": 184.399994 },
+                "rotation": { "x": -0.0, "y": 0.0, "z": -173.658325 },
+                "fov": 74.0,
+                "focus": 0.3755,
+                "render_ratio": 1.0,
+                "sensor_size": { "x": 9.59, "y": 5.394 },
+                "pixel_aspect_ratio": 1.0,
+                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
+              },
+              "def": {
+                "location": { "x": 600.0, "y": 50.0, "z": 100.0 },
+                "rotation": { "x": 0.0, "y": 0.0, "z": 180.0 },
+                "fov": 74.0,
+                "render_ratio": 1.0,
+                "sensor_size": { "x": 9.59, "y": 5.394 },
+                "pixel_aspect_ratio": 1.0,
+                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
+              },
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "06213ade-5efc-4c51-9d00-f14cf5549bb1",
+              "name": "Clip",
+              "type_name": "nos.fb.vec2",
+              "show_as": "INPUT_PIN",
+              "can_show_as": "INPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": { "x": 0.1, "y": 10000.0 },
+              "def": { "x": 0.1, "y": 10000.0 },
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "fec33482-665c-4149-b95a-0ad4d557b103",
+              "name": "View",
+              "type_name": "nos.graphics.RenderView",
+              "show_as": "OUTPUT_PIN",
+              "can_show_as": "OUTPUT_PIN_ONLY",
+              "visualizer": {
+              },
+              "data": { "view": { "x": { "x": 0.11046, "y": 0.0, "z": -0.993881, "w": 0.0 }, "y": { "x": -0.993881, "y": 0.0, "z": -0.11046, "w": 0.0 }, "z": { "x": 0.0, "y": 1.0, "z": 0.0, "w": 0.0 }, "w": { "x": -237.283401, "y": -184.400009, "z": 360.595337, "w": 1.0 } }, "left_handed_projection_matrix": { "x": { "x": 1.327045, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": -2.359355, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 1.00001, "w": 1.0 }, "w": { "x": 0.0, "y": 0.0, "z": -0.100001, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.1, "y": 10000.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { "aspect_ratio": 1.777901, "fov_x": 74.0 }
+                } },
+              "min": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.0, "y": 0.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { },
+                  "orthographic": { }
+                } },
+              "max": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.0, "y": 0.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { },
+                  "orthographic": { }
+                } },
+              "def": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.0, "y": 0.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { },
+                  "orthographic": { }
+                } },
+              "contents_type": "JobPin",
+              "contents": { }
+            }
+          ],
+          "pos": { "x": -447.666687, "y": 233.666687 },
+          "contents_type": "Job",
+          "contents": { "type": "" },
+          "function_category": "Default Node",
+          "plugin_version": { "major": 0, "minor": 2, "patch": 0 }
+        },
         {
           "id": "b34dd9d3-ae1f-4326-bcaa-27bf734ba695",
           "name": "FreeD",
@@ -184,7 +272,7 @@
               "can_show_as": "PROPERTY_ONLY",
               "visualizer": {
               },
-              "data": 0.433576,
+              "data": 0.07728,
               "def": 0.0,
               "readonly": true,
               "advanced_property": true,
@@ -562,7 +650,7 @@
               "contents": { }
             }
           ],
-          "pos": { "x": -384.0, "y": 796.0 },
+          "pos": { "x": -624.666687, "y": 87.666687 },
           "contents_type": "Job",
           "contents": { "type": "" },
           "function_category": "Default Node",
@@ -884,7 +972,7 @@
               "display_name": "Enable Sync"
             }
           ],
-          "pos": { "x": 1380.0, "y": 633.0 },
+          "pos": { "x": 1139.333374, "y": -75.333313 },
           "contents_type": "Graph",
           "contents": { "nodes": [
               {
@@ -930,7 +1018,7 @@
                     "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
                     "visualizer": {
                     },
-                    "data": 2458949429088,
+                    "data": 1716454641248,
                     "def": 0,
                     "meta_data_map": [
                       { "key": "Category", "value": "" }
@@ -946,7 +1034,7 @@
                     "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
                     "visualizer": {
                     },
-                    "data": 165888000,
+                    "data": 5529616,
                     "def": 0,
                     "meta_data_map": [
                       { "key": "Category", "value": "" }
@@ -1497,7 +1585,7 @@
                     "can_show_as": "INPUT_PIN_ONLY",
                     "visualizer": {
                     },
-                    "data": 1717371,
+                    "data": 1817673,
                     "def": 0,
                     "meta_data_map": [
                       { "key": "Category", "value": "" }
@@ -2111,8 +2199,7 @@
                 "status_messages": [
                   { "text": "Corvid44-8K - 0" },
                   { "text": "Ch4 1080p59.94a" },
-                  { "text": "Reference: Reference In (29.97)" },
-                  { "text": "Drop Count: 2", "type": "WARNING" }
+                  { "text": "Reference: Reference In (29.97)" }
                 ],
                 "description": "Debugging/test node for opening channels",
                 "display_name": "AJA Channel",
@@ -2325,7 +2412,7 @@
                     "can_show_as": "OUTPUT_PIN_ONLY",
                     "visualizer": {
                     },
-                    "data": 1717372,
+                    "data": 1817674,
                     "def": 0,
                     "meta_data_map": [
                       { "key": "Category", "value": "" }
@@ -3193,11 +3280,11 @@
                           "visualizer": {
                           },
                           "data": {
-                            "width": 4096,
+                            "resolution": "HD",
+                            "width": 1920,
                             "height": 1080,
-                            "format": "R8G8B8A8_UNORM",
-                            "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED STORAGE RENDER_TARGET",
-                            "unscaled": true
+                            "format": "R16G16B16A16_SFLOAT",
+                            "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED"
                           },
                           "def": {
                             "resolution": "HD",
@@ -3223,9 +3310,9 @@
                           "visualizer": {
                           },
                           "data": {
-                            "resolution": "HD",
-                            "width": 1920,
-                            "height": 1080,
+                            "resolution": "ULTRA_HD",
+                            "width": 3840,
+                            "height": 2160,
                             "format": "R16G16B16A16_SFLOAT",
                             "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED STORAGE RENDER_TARGET",
                             "unscaled": true
@@ -3930,7 +4017,7 @@
                           "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
                           "visualizer": {
                           },
-                          "data": 2461288503392,
+                          "data": 1716456480272,
                           "def": 0,
                           "meta_data_map": [
                             { "key": "Category", "value": "" }
@@ -4155,29 +4242,29 @@
                       "plugin_version": { "major": 1, "minor": 7, "patch": 13 }
                     }
                   ], "connections": [
-                    { "from": "61319466-112a-45cd-985f-6f735fd8b932", "to": "461be6b8-ea34-4f9f-b70b-69ecf853de9d", "id": "829d0ae1-4895-4ad8-a67d-6cb876707a98" },
-                    { "from": "f5bbb771-7318-483b-ac47-359b306f1897", "to": "43fc10fc-ec3f-45c5-990f-062cc6e00611", "id": "2ca29107-5ca2-4b7a-a3ac-d73f3011f4fa" },
-                    { "from": "a696f0ea-0071-4523-bc8a-524610b8f348", "to": "350ef2bb-0be2-4563-991e-82f243ca0644", "id": "dedd5391-27d4-4ee4-89dd-e11d86efa618" },
-                    { "from": "a696f0ea-0071-4523-bc8a-524610b8f348", "to": "50d4641a-2191-42ae-88d7-018dd39b5d0e", "id": "51a5cf8c-34db-4695-8f4a-126c21f79354" },
-                    { "from": "5952fdfc-0c50-4bfd-9797-13e103b393d6", "to": "e144ec4c-5858-41ce-9b63-a6ea5533f877", "id": "8529d1c1-1c10-4c27-b162-99be6677ae56" },
-                    { "from": "13117307-a032-4a95-9e39-c4310e93ff68", "to": "661ffd53-1011-40d1-9f21-98c5b75ffa92", "id": "f7ee8dcf-fe40-49e6-970d-eae33c9576ef" },
-                    { "from": "5221c9fc-6704-4575-93ef-2d26bfdf61c2", "to": "9f585ae9-80a9-4a61-9cad-1489d37f4dc0", "id": "0e989d0b-36b8-4931-9d20-0fe3b553a348" },
-                    { "from": "5c465c96-ee8a-4695-a526-7e5971ffcaa5", "to": "904c46c7-bd06-4a1a-b535-8bf3b241bfc2", "id": "fe6b2472-2dbf-4389-962a-da575681a8a0" },
-                    { "from": "1a8cab88-80aa-4c38-b8b0-4db76f61ca38", "to": "f93f2336-74f3-4be4-afb1-9d155f90e11b", "id": "1e331fc3-9d07-4f6a-8ca7-4392205ae8f9" },
-                    { "from": "b4d7822c-52fb-4893-8865-79fe99e651cd", "to": "5050f380-bec7-4717-87b8-be33676aed0b", "id": "70d8d9d9-7a56-48a0-a533-1d273b3aa1c8" },
-                    { "from": "d1751642-cc9b-437e-9219-6f46e4258092", "to": "55715095-ff09-4710-a4ec-f4b4218c0021", "id": "8b0e5f95-053e-44c4-a25e-2c411754fd2c" },
-                    { "from": "e3fbf477-bfa5-4699-9eb0-19b399e88613", "to": "e7581ed3-a83c-4f1e-9e4a-eec7aae73f7d", "id": "491b17c1-be3d-43b8-a79a-faf2c2cc2752" },
-                    { "from": "61319466-112a-45cd-985f-6f735fd8b932", "to": "476a43a2-2d3c-4ff9-977b-bb98f5517e3a", "id": "c7d79706-bc1d-4b19-927c-e98a337618b8" },
-                    { "from": "8cdeea85-73eb-49bc-a5df-7bf0339464b3", "to": "3ee8a28d-fd62-4ea2-8e04-b93ccbce4ee5", "id": "0ced266c-62a2-4650-af38-354ad13b0d71" },
-                    { "from": "9ce2edcc-67b3-479c-86d9-0c8e2c0d7680", "to": "ae8df71e-fc8f-472c-9a4e-36d2709d244d", "id": "1e69e31c-08b9-4d39-995d-e7cf32422835" },
-                    { "from": "61319466-112a-45cd-985f-6f735fd8b932", "to": "db8e2c64-b706-4fd5-b1dc-36bbc7ac6dd6", "id": "7651dfd7-19f5-4f3a-ad68-751a103b617d" },
-                    { "from": "ba039992-1d44-4c70-969f-c56c5c8f0dbc", "to": "ab89e1b4-befc-4933-87db-a82b010c65a4", "id": "1bdc1703-556e-4636-b73d-fd0050c45d61" },
-                    { "from": "595fdb11-c985-4f8b-9d6c-8ef224417a83", "to": "c548f28c-2766-4a82-a866-e1aab48693fd", "id": "fb5aee0b-9b98-4019-8a1d-4d758ac3b60e" },
-                    { "from": "cd5a8aab-02d1-4928-96aa-08730c31c81f", "to": "27ca14e7-614b-4360-ac87-7193c77034a7", "id": "95e4ead0-47c4-4c9c-bfa2-af94aff6933a" },
-                    { "from": "4dfe2f0c-4507-4077-be13-f482a7360718", "to": "eb15efce-2ffe-44e0-a32a-bf6fa964647d", "id": "7ab27f8a-7bf2-4058-8d7c-c37c766abd9c" },
-                    { "from": "9b9fe420-df7f-4bc0-b77b-49e443642ce2", "to": "adc28896-d91e-4324-993f-d405a27e3834", "id": "7e45cac3-91ea-4158-876a-c70a3cdd4203" },
-                    { "from": "6565e234-41fc-4355-a036-6afb4719ab9c", "to": "769313bc-bcb0-49b2-9008-c7588bd5bfaf", "id": "91aad3bd-f018-473d-a59f-738fbaab8dcf" },
-                    { "from": "81577be3-54e4-4494-b1eb-792a335c7430", "to": "53e1a8bc-44f6-460e-8c5c-28ecc0556cf3", "id": "de6fd050-cfa9-44f2-ba73-1da9fcc06d74" }
+                    { "from": "a696f0ea-0071-4523-bc8a-524610b8f348", "to": "50d4641a-2191-42ae-88d7-018dd39b5d0e", "id": "724a7762-35db-4c3f-a80e-eebcfafd053e" },
+                    { "from": "61319466-112a-45cd-985f-6f735fd8b932", "to": "476a43a2-2d3c-4ff9-977b-bb98f5517e3a", "id": "f1c77492-df54-438c-b42d-8200526c4125" },
+                    { "from": "f5bbb771-7318-483b-ac47-359b306f1897", "to": "43fc10fc-ec3f-45c5-990f-062cc6e00611", "id": "5e2c7919-d545-453f-b4eb-9eca748d8b56" },
+                    { "from": "a696f0ea-0071-4523-bc8a-524610b8f348", "to": "350ef2bb-0be2-4563-991e-82f243ca0644", "id": "d73f2a81-383e-404d-8d53-0c6342fe5720" },
+                    { "from": "5952fdfc-0c50-4bfd-9797-13e103b393d6", "to": "e144ec4c-5858-41ce-9b63-a6ea5533f877", "id": "f1d33859-5c3d-42c2-b727-838acad03974" },
+                    { "from": "13117307-a032-4a95-9e39-c4310e93ff68", "to": "661ffd53-1011-40d1-9f21-98c5b75ffa92", "id": "c7bf3836-30d6-4088-bcdf-8179ef370726" },
+                    { "from": "5c465c96-ee8a-4695-a526-7e5971ffcaa5", "to": "904c46c7-bd06-4a1a-b535-8bf3b241bfc2", "id": "fab894d1-1ae1-4c60-9c55-a8efedc1d9ae" },
+                    { "from": "1a8cab88-80aa-4c38-b8b0-4db76f61ca38", "to": "f93f2336-74f3-4be4-afb1-9d155f90e11b", "id": "0e4d7df1-f9db-49ec-8333-70e7333c5b8f" },
+                    { "from": "5221c9fc-6704-4575-93ef-2d26bfdf61c2", "to": "9f585ae9-80a9-4a61-9cad-1489d37f4dc0", "id": "ac118a7d-d055-4e26-b93f-65cf504b9b39" },
+                    { "from": "d1751642-cc9b-437e-9219-6f46e4258092", "to": "55715095-ff09-4710-a4ec-f4b4218c0021", "id": "d10e3c81-6322-48b8-a6a3-e5d90e7f3d04" },
+                    { "from": "e3fbf477-bfa5-4699-9eb0-19b399e88613", "to": "e7581ed3-a83c-4f1e-9e4a-eec7aae73f7d", "id": "9cf98fbb-411b-4653-9b08-88d110c57eaa" },
+                    { "from": "8cdeea85-73eb-49bc-a5df-7bf0339464b3", "to": "3ee8a28d-fd62-4ea2-8e04-b93ccbce4ee5", "id": "db8080db-7e6b-4706-a2fe-fe544f74fb8e" },
+                    { "from": "9ce2edcc-67b3-479c-86d9-0c8e2c0d7680", "to": "ae8df71e-fc8f-472c-9a4e-36d2709d244d", "id": "7104a880-7a76-4694-9214-344760cd9636" },
+                    { "from": "b4d7822c-52fb-4893-8865-79fe99e651cd", "to": "5050f380-bec7-4717-87b8-be33676aed0b", "id": "dc004ffd-62b8-485d-adee-22a62cbfc4fd" },
+                    { "from": "61319466-112a-45cd-985f-6f735fd8b932", "to": "db8e2c64-b706-4fd5-b1dc-36bbc7ac6dd6", "id": "df71385a-37b1-4ab7-b3b8-bf268d3ad01f" },
+                    { "from": "595fdb11-c985-4f8b-9d6c-8ef224417a83", "to": "c548f28c-2766-4a82-a866-e1aab48693fd", "id": "381fdc82-62ae-40c9-95f2-af0753da8b52" },
+                    { "from": "cd5a8aab-02d1-4928-96aa-08730c31c81f", "to": "27ca14e7-614b-4360-ac87-7193c77034a7", "id": "a9c0abe8-a12a-4d57-8e8c-21c6e01df88b" },
+                    { "from": "61319466-112a-45cd-985f-6f735fd8b932", "to": "461be6b8-ea34-4f9f-b70b-69ecf853de9d", "id": "8e056c43-a647-4fa0-9da2-4a4785b0d4cc" },
+                    { "from": "4dfe2f0c-4507-4077-be13-f482a7360718", "to": "eb15efce-2ffe-44e0-a32a-bf6fa964647d", "id": "95a26790-883b-4515-9537-c390c244f2eb" },
+                    { "from": "ba039992-1d44-4c70-969f-c56c5c8f0dbc", "to": "ab89e1b4-befc-4933-87db-a82b010c65a4", "id": "e3c20f31-6299-44c8-b1e8-c221bd2caa9a" },
+                    { "from": "9b9fe420-df7f-4bc0-b77b-49e443642ce2", "to": "adc28896-d91e-4324-993f-d405a27e3834", "id": "09e4975c-82b6-4518-8a24-429779e2eb1a" },
+                    { "from": "6565e234-41fc-4355-a036-6afb4719ab9c", "to": "769313bc-bcb0-49b2-9008-c7588bd5bfaf", "id": "2be4bcdf-6bac-48cc-908b-baf6a6055f38" },
+                    { "from": "81577be3-54e4-4494-b1eb-792a335c7430", "to": "53e1a8bc-44f6-460e-8c5c-28ecc0556cf3", "id": "f227c119-dd16-4067-971c-4adb72a60dcd" }
                   ] },
                 "function_category": "Default Node",
                 "plugin_version": { "major": 0, "minor": 0, "patch": 0 }
@@ -5254,11 +5341,11 @@
                             "plugin_version": { "major": 1, "minor": 9, "patch": 3 }
                           }
                         ], "connections": [
-                          { "from": "73e3cf8d-1b30-4383-b25e-c6a5d3de6fd2", "to": "3b5c4b32-bd96-4b6b-a981-597ce5d66db0", "id": "34162600-974f-4b1b-bd00-a39bd3a4653c" },
-                          { "from": "7f4bd742-9c40-41ec-ba0f-e596a5865661", "to": "5d70831b-656e-4872-bc2a-77cdb0b7837a", "id": "8e3d8c05-7d13-480a-81fb-2ff418784d7e" },
-                          { "from": "c4ab3ce0-a1ca-4a75-aa91-f12acbe41e6d", "to": "68f36e47-d141-4547-84f8-6948da374ac0", "id": "4473e805-de6f-4d8b-b3d7-83bfbe9898e5" },
-                          { "from": "d151961e-84e3-4c81-9436-fb8194a90a67", "to": "b0d3252f-d22a-419b-9620-f81f64ba2998", "id": "50d1afde-9b05-4319-a612-7f373030be13" },
-                          { "from": "c4ab3ce0-a1ca-4a75-aa91-f12acbe41e6d", "to": "01fba4aa-f672-41c0-a380-4c251e488358", "id": "3524e8fc-365d-4f0d-a8ca-fb4286bec17f" }
+                          { "from": "73e3cf8d-1b30-4383-b25e-c6a5d3de6fd2", "to": "3b5c4b32-bd96-4b6b-a981-597ce5d66db0", "id": "0491e0f7-29ff-42c2-bfd8-974439e88443" },
+                          { "from": "7f4bd742-9c40-41ec-ba0f-e596a5865661", "to": "5d70831b-656e-4872-bc2a-77cdb0b7837a", "id": "ccc0571f-eab2-4a1f-8342-8ba66fc08258" },
+                          { "from": "c4ab3ce0-a1ca-4a75-aa91-f12acbe41e6d", "to": "68f36e47-d141-4547-84f8-6948da374ac0", "id": "437afcfa-511d-4198-ab80-179447a5dab3" },
+                          { "from": "c4ab3ce0-a1ca-4a75-aa91-f12acbe41e6d", "to": "01fba4aa-f672-41c0-a380-4c251e488358", "id": "12a676d2-619b-4d71-adec-453ec01c9fc1" },
+                          { "from": "d151961e-84e3-4c81-9436-fb8194a90a67", "to": "b0d3252f-d22a-419b-9620-f81f64ba2998", "id": "529820e1-aea5-4c5a-9103-baa2bd816dc8" }
                         ] },
                       "function_category": "Default Node",
                       "plugin_version": { "major": 2, "minor": 7, "patch": 0 }
@@ -5468,7 +5555,7 @@
                           "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
                           "visualizer": {
                           },
-                          "data": 2461288503392,
+                          "data": 1716456480272,
                           "def": 0,
                           "contents_type": "JobPin",
                           "contents": { }
@@ -5973,17 +6060,17 @@
                       "plugin_version": { "major": 0, "minor": 0, "patch": 0 }
                     }
                   ], "connections": [
-                    { "from": "5cf1444c-d013-4795-b0f4-45795c658274", "to": "88a6788e-2992-4a89-9234-63cde40504aa", "id": "3dce8d31-5a2e-4c12-92de-e0ecc2bcda8f" },
-                    { "from": "8f97a7f0-028b-4c9d-8c0f-9025f6523789", "to": "eb83a2e7-0ba1-48a8-8f0f-f0ab63413999", "id": "f825a2aa-e4e1-40c9-860e-89b01c5444bc" },
-                    { "from": "6882f70f-a024-46fe-8242-6a02b7ab0ac9", "to": "4adb989e-4c6d-49c7-aa3b-9dcad231498d", "id": "47cc6a3c-7373-4373-a9e2-0403b2cab6db" },
-                    { "from": "27fb3bcb-a9e6-4462-b645-7ef46c989619", "to": "dcd8d7e9-4305-4abc-bc22-de472fbcab8b", "id": "3d135a70-907a-4a7d-9e06-32deb7ed212d" },
-                    { "from": "da823bd2-3d0d-42f1-a711-672acfb8a3e8", "to": "e3a5ad7e-e57b-44fd-a2bd-7655139b6b8a", "id": "7ade12aa-9045-47fc-b5ac-2bf1df601e85" },
-                    { "from": "b6f589fe-c7c7-47fb-af74-9af35b3c5116", "to": "332bed2b-9361-4b88-a988-a86fbaaedfa7", "id": "90b37222-6e0a-4f1b-9732-ba0fae056a62" },
-                    { "from": "9b1449a0-1afe-4bdf-98b5-1557fa16a52d", "to": "fb44afcb-6724-43fd-913e-6fd770eab722", "id": "5f737d28-c5f6-4e30-ae55-24807b73f6e2" },
-                    { "from": "37823b8c-c1ce-4de6-a630-4ecb9b93d039", "to": "cbde8b66-c3b1-43bf-bb5b-173988df7192", "id": "654697ee-279c-4796-8403-0c9f44ea9d61" },
-                    { "from": "08b6c6fd-d48d-445a-a271-9cfb9876ef1a", "to": "ffc57341-07de-4e8a-959f-b5ca1a46d21e", "id": "f6f5b674-5371-4c04-a4ab-971099777510" },
-                    { "from": "6187a354-9164-4ca0-9571-be64655f21db", "to": "c10ee7aa-a869-491c-a25b-ea4603f7fb0b", "id": "701cb334-b16d-4a89-b039-6a73c35a8001" },
-                    { "from": "5173cb91-19a7-4164-8bb6-c8dbe4e93bfe", "to": "ac377529-dfcd-46f5-8289-1ee9e0e9d13b", "id": "4641af6b-98db-47c5-9bf0-776141ea3281" }
+                    { "from": "8f97a7f0-028b-4c9d-8c0f-9025f6523789", "to": "eb83a2e7-0ba1-48a8-8f0f-f0ab63413999", "id": "d9359387-a0d1-4da0-8af8-121f8fa53473" },
+                    { "from": "27fb3bcb-a9e6-4462-b645-7ef46c989619", "to": "dcd8d7e9-4305-4abc-bc22-de472fbcab8b", "id": "af1c1c9a-364e-4ca8-845b-d7bdbaabe6b9" },
+                    { "from": "b6f589fe-c7c7-47fb-af74-9af35b3c5116", "to": "332bed2b-9361-4b88-a988-a86fbaaedfa7", "id": "695f86e7-bcbd-43dd-bd55-2f37cdf3d53a" },
+                    { "from": "6882f70f-a024-46fe-8242-6a02b7ab0ac9", "to": "4adb989e-4c6d-49c7-aa3b-9dcad231498d", "id": "6ca8bcbd-abaa-47b4-b095-17ebac478174" },
+                    { "from": "9b1449a0-1afe-4bdf-98b5-1557fa16a52d", "to": "fb44afcb-6724-43fd-913e-6fd770eab722", "id": "09ce1108-a852-4ae0-ba44-be2587c6e384" },
+                    { "from": "08b6c6fd-d48d-445a-a271-9cfb9876ef1a", "to": "ffc57341-07de-4e8a-959f-b5ca1a46d21e", "id": "2a4d2c73-cc34-43df-86c2-1f08b5404c9a" },
+                    { "from": "37823b8c-c1ce-4de6-a630-4ecb9b93d039", "to": "cbde8b66-c3b1-43bf-bb5b-173988df7192", "id": "40edee57-c3f8-421e-b84f-971d3e8ce23b" },
+                    { "from": "5cf1444c-d013-4795-b0f4-45795c658274", "to": "88a6788e-2992-4a89-9234-63cde40504aa", "id": "48348bff-601f-4aa1-94fa-96a2df3209d7" },
+                    { "from": "da823bd2-3d0d-42f1-a711-672acfb8a3e8", "to": "e3a5ad7e-e57b-44fd-a2bd-7655139b6b8a", "id": "08bd34fa-6e44-4f50-a34a-84fc35deff2a" },
+                    { "from": "6187a354-9164-4ca0-9571-be64655f21db", "to": "c10ee7aa-a869-491c-a25b-ea4603f7fb0b", "id": "ae3652d3-9554-4f54-b4d1-810244da0e40" },
+                    { "from": "5173cb91-19a7-4164-8bb6-c8dbe4e93bfe", "to": "ac377529-dfcd-46f5-8289-1ee9e0e9d13b", "id": "fcfd50be-f7f7-4429-aa6b-8b8901b0883b" }
                   ] },
                 "function_category": "Default Node",
                 "display_name": "Show Warning If Auto-interlacing",
@@ -6091,37 +6178,37 @@
                 "bg_color": { "x": 1.0, "y": 0.663717, "z": 0.0, "w": 0.3 }
               }
             ], "connections": [
-              { "from": "bb53bb62-b8d1-4c9c-85e3-b118b98929ff", "to": "9d7dbd12-5169-4981-ad21-592bd82a995e", "id": "826f45a3-0242-414d-ac38-8340c7a2bf5c" },
-              { "from": "01cec88a-86e2-4e0f-9296-2715a732a817", "to": "0ae70b63-66d5-4387-bf31-41aa9bfa8c60", "id": "4812c3e4-0e2d-467e-83af-6635eeb3de2f" },
-              { "from": "2a148c30-c895-43ad-a67b-bad30c0fd5e6", "to": "02eb5890-3d2c-4600-9c79-ce7ee0f82193", "id": "a01aa55b-6416-4da7-b78f-47e475ee4956" },
-              { "from": "8fbd7dda-68d0-4711-9939-c0185156bf07", "to": "18148aec-44f3-4947-8bc7-5792adafa844", "id": "3b6c10f6-20ff-495b-ad62-70d3a1e15b92" },
-              { "from": "614f4d7e-fa73-4633-a868-c67534f99ad0", "to": "9f80f480-f1e4-47fb-a80c-904a7eaa64e6", "id": "3a8f8264-ab3c-42bc-9337-9f987227da35" },
-              { "from": "7228442e-6684-4b42-a5e8-a587aec64473", "to": "109420ca-00ab-4cde-a287-28f2005baeba", "id": "ce07fee4-32c6-48af-9085-676c3852eeae" },
-              { "from": "c18efa25-911d-437e-9cf1-55a116eeea4f", "to": "ae3eaa75-da65-4568-be4b-a803a8e2fcbf", "id": "f0216578-980a-45c1-b4b8-f99debb8d77f" },
-              { "from": "fe0aaf29-65c1-4a03-a9c2-abd3a3c39eae", "to": "43b88ba6-0c87-4b6d-95b2-e217754dbd0f", "id": "98ea50b3-4a3a-426e-be2c-471d2d1bfad9" },
-              { "from": "6ee372e1-8226-4afe-86c4-d894b71d615c", "to": "163a2356-a230-4ca8-8c4e-d7324729d7f5", "id": "890691ba-8b57-45b0-b98b-5110fd1e6b47" },
-              { "from": "b3fa1190-0e91-4135-b25b-149284ec2301", "to": "b5780a00-90fd-4085-b9bc-736c8a17a7cf", "id": "31d23860-c07a-4687-9726-24ffaaf40d94" },
-              { "from": "0225456e-ad86-4fd5-9c16-2bef608cb06b", "to": "d788a204-8ea1-4f68-a7d6-7b940f6a52b6", "id": "31ae1169-9cfe-43b8-aa23-2d4c9d774104" },
-              { "from": "0225456e-ad86-4fd5-9c16-2bef608cb06b", "to": "56908189-b6cd-45cb-b93b-64599544d131", "id": "b1fbcb07-3120-4e74-8b82-fab66f0029eb" },
-              { "from": "3133d477-9fc5-4513-a737-c917bb6e7bd8", "to": "d31fea4f-5afb-4c28-8d2c-f0ce33c21846", "id": "18c0e652-e474-4a5d-a81d-4d49404377d0" },
-              { "from": "f60532d3-5cf2-4537-b6a4-83bbcfe6e3ed", "to": "fe0ec725-4350-406f-b895-e4050ada5077", "id": "6abeebc6-4f04-4e5b-a9c6-df3a7a1ae2f1" },
-              { "from": "bcf7b142-4408-4f03-8124-1ad306ba3d60", "to": "4391678a-e971-4c4e-9d2c-70f326252cd7", "id": "7f164a0b-1fdb-4246-aa7b-5cfb064dcc6f" },
-              { "from": "00dd1ec2-2fd1-4481-b440-515e23b3a089", "to": "7aea4eac-7bce-4948-a28e-711ec545c860", "id": "98cb6cfb-5880-4985-818f-1e7c2449d56d" },
-              { "from": "797a0c7b-7915-4a1e-b924-da75997f9a02", "to": "99e64e0a-ace1-4ef8-8aeb-8d6a2de46071", "id": "a2e26a3d-cac7-49fa-8030-515a034e4fae" },
-              { "from": "b8cb2e96-cdb8-4389-9dc4-acc0e8656e9b", "to": "bc9ebabc-29dd-46dc-8c19-71d096bf8918", "id": "0612d2eb-1975-4977-a115-a5edc7337b4c" },
-              { "from": "58dfd6a4-e7f9-443b-b45a-2cb3e056bd96", "to": "6b6167f4-25a4-442c-8e14-508a0f1dcd96", "id": "d65c911a-910d-4b35-ac74-a43c6e7a8ece" },
-              { "from": "e2e7354f-237b-4ebd-8335-2ec70e1acf92", "to": "9632bab0-30ea-477a-8fc9-e147bbfab435", "id": "14173d47-8dd5-4dbf-874b-1b709780f16a" },
-              { "from": "424f84e0-9abc-40a2-998a-03fe66d73f2e", "to": "9ca4ed78-5846-4726-b5aa-d1e3e2489a06", "id": "6c55bee0-f4b8-4703-8175-1e36d3756f33" },
-              { "from": "00dd1ec2-2fd1-4481-b440-515e23b3a089", "to": "7b68a818-3056-4f74-b2ce-80924c398b32", "id": "5465b0e3-254c-4906-8e8a-0ed2cfc354bc" },
-              { "from": "51c3457e-5f10-4e21-9b7a-5eb300ab3c8c", "to": "75d141ff-36bf-4cb0-8c0f-c96fc4c78b33", "id": "e8eafa33-f536-4fe2-a58f-ac7b3af90756" },
-              { "from": "b3fa1190-0e91-4135-b25b-149284ec2301", "to": "24ce7a31-b2cc-4515-9eb7-76c3f2d2c0c6", "id": "7621ec02-bd08-414f-8097-9933edee5c92" },
-              { "from": "72890443-1ef1-4fc9-990c-6a1e43726a97", "to": "f84c3424-fdfd-45e6-a92a-e0531e50fb97", "id": "320d4fef-e349-4afa-9fc0-e25f9bc8055d" },
-              { "from": "a83876c9-deb7-45d1-a90e-7dcfcc56a90d", "to": "7d88c96a-b24c-4cb7-bb2b-cf3909b006ee", "id": "b4a18781-a90c-46a0-8917-1e7d79f4cf47" },
-              { "from": "a1d5af52-ab6b-4e65-b5cc-305c87af5bec", "to": "db400847-de12-4299-a3c9-a250bd34f988", "id": "4a72ff98-0b53-4c59-9d70-303d2a5a5738" },
-              { "from": "fe0aaf29-65c1-4a03-a9c2-abd3a3c39eae", "to": "bb843875-e7dc-43bc-8db2-b7cd99991cf5", "id": "7e72e7a3-787d-40ec-a167-d62f447c5799" },
-              { "from": "e229300e-0dfe-4585-b71b-ee706095cebb", "to": "86609025-7a36-4060-8379-2acd6eacedf2", "id": "e9eccac3-f5e0-4176-9062-cade5e749dbc" },
-              { "from": "bcf7b142-4408-4f03-8124-1ad306ba3d60", "to": "71e2ff48-e653-4890-ab91-323226450e7c", "id": "25cf7e93-acb2-476b-8ba8-ac312a0870d6" },
-              { "from": "e2e7354f-237b-4ebd-8335-2ec70e1acf92", "to": "01784fe0-d699-48ab-88a1-e135eca31b36", "id": "c499c4b1-2361-4d9a-aa97-1b32660a287c" }
+              { "from": "00dd1ec2-2fd1-4481-b440-515e23b3a089", "to": "7aea4eac-7bce-4948-a28e-711ec545c860", "id": "db3b3368-c8c3-4fe8-8848-3226106abe9f" },
+              { "from": "8fbd7dda-68d0-4711-9939-c0185156bf07", "to": "18148aec-44f3-4947-8bc7-5792adafa844", "id": "a4feb2c8-0a7f-463b-b1e7-5564b327b34c" },
+              { "from": "fe0aaf29-65c1-4a03-a9c2-abd3a3c39eae", "to": "bb843875-e7dc-43bc-8db2-b7cd99991cf5", "id": "9ac252eb-57a8-4fb5-8669-f328df414dee" },
+              { "from": "6ee372e1-8226-4afe-86c4-d894b71d615c", "to": "163a2356-a230-4ca8-8c4e-d7324729d7f5", "id": "c672a6e9-6af6-48fe-9ef5-eecc46e28ca5" },
+              { "from": "e229300e-0dfe-4585-b71b-ee706095cebb", "to": "86609025-7a36-4060-8379-2acd6eacedf2", "id": "ab7b6688-cfc0-4786-8fa3-6b279a0d846d" },
+              { "from": "c18efa25-911d-437e-9cf1-55a116eeea4f", "to": "ae3eaa75-da65-4568-be4b-a803a8e2fcbf", "id": "1499770e-c543-42cc-ac1f-1a4580a044a7" },
+              { "from": "7228442e-6684-4b42-a5e8-a587aec64473", "to": "109420ca-00ab-4cde-a287-28f2005baeba", "id": "00b75b7a-d97f-4e15-b234-0e42206254cd" },
+              { "from": "614f4d7e-fa73-4633-a868-c67534f99ad0", "to": "9f80f480-f1e4-47fb-a80c-904a7eaa64e6", "id": "939a2b8b-1264-4793-9335-e49970c6159f" },
+              { "from": "2a148c30-c895-43ad-a67b-bad30c0fd5e6", "to": "02eb5890-3d2c-4600-9c79-ce7ee0f82193", "id": "3c7e305d-6f53-4ada-a9be-e0f99885f794" },
+              { "from": "01cec88a-86e2-4e0f-9296-2715a732a817", "to": "0ae70b63-66d5-4387-bf31-41aa9bfa8c60", "id": "9329ef9d-71c2-4917-ae9d-1a837cfbaa2a" },
+              { "from": "b3fa1190-0e91-4135-b25b-149284ec2301", "to": "b5780a00-90fd-4085-b9bc-736c8a17a7cf", "id": "d774f077-d255-4430-a6d5-06274548c10a" },
+              { "from": "e2e7354f-237b-4ebd-8335-2ec70e1acf92", "to": "01784fe0-d699-48ab-88a1-e135eca31b36", "id": "dfdf60de-05e2-44a0-9bbe-d0e64fa983ad" },
+              { "from": "a1d5af52-ab6b-4e65-b5cc-305c87af5bec", "to": "db400847-de12-4299-a3c9-a250bd34f988", "id": "6702fabc-0413-4c2e-b856-cb53ecbe8fe3" },
+              { "from": "fe0aaf29-65c1-4a03-a9c2-abd3a3c39eae", "to": "43b88ba6-0c87-4b6d-95b2-e217754dbd0f", "id": "ded4fe9b-b214-481d-b388-3727f28b7710" },
+              { "from": "0225456e-ad86-4fd5-9c16-2bef608cb06b", "to": "d788a204-8ea1-4f68-a7d6-7b940f6a52b6", "id": "87dd5512-1c4d-458c-bf81-76798d629781" },
+              { "from": "424f84e0-9abc-40a2-998a-03fe66d73f2e", "to": "9ca4ed78-5846-4726-b5aa-d1e3e2489a06", "id": "721a78e1-fcd9-468b-ab82-7648202e6b94" },
+              { "from": "0225456e-ad86-4fd5-9c16-2bef608cb06b", "to": "56908189-b6cd-45cb-b93b-64599544d131", "id": "0a61b0e7-0e9b-43ff-9405-b0262238e720" },
+              { "from": "3133d477-9fc5-4513-a737-c917bb6e7bd8", "to": "d31fea4f-5afb-4c28-8d2c-f0ce33c21846", "id": "9acdda14-7e59-4792-a10a-8c8fdb1b9c3b" },
+              { "from": "f60532d3-5cf2-4537-b6a4-83bbcfe6e3ed", "to": "fe0ec725-4350-406f-b895-e4050ada5077", "id": "17d03923-15b8-48d0-97e5-5afd655a80b4" },
+              { "from": "bcf7b142-4408-4f03-8124-1ad306ba3d60", "to": "4391678a-e971-4c4e-9d2c-70f326252cd7", "id": "1f2004fb-c9bb-4557-b7bf-2a0c0fa032cd" },
+              { "from": "797a0c7b-7915-4a1e-b924-da75997f9a02", "to": "99e64e0a-ace1-4ef8-8aeb-8d6a2de46071", "id": "0f1a8eff-b996-475b-aa7e-00664bbbb92d" },
+              { "from": "58dfd6a4-e7f9-443b-b45a-2cb3e056bd96", "to": "6b6167f4-25a4-442c-8e14-508a0f1dcd96", "id": "b4ca1dd5-b4d1-4486-a30c-01f8e61b0889" },
+              { "from": "e2e7354f-237b-4ebd-8335-2ec70e1acf92", "to": "9632bab0-30ea-477a-8fc9-e147bbfab435", "id": "1aa15faa-5b75-414f-bb0c-080b5dcb877e" },
+              { "from": "bb53bb62-b8d1-4c9c-85e3-b118b98929ff", "to": "9d7dbd12-5169-4981-ad21-592bd82a995e", "id": "6a4f2905-0ecb-4b30-841c-e13eca27ba96" },
+              { "from": "00dd1ec2-2fd1-4481-b440-515e23b3a089", "to": "7b68a818-3056-4f74-b2ce-80924c398b32", "id": "c5e3cef2-a338-4a96-9f7a-c7cdec8e9365" },
+              { "from": "51c3457e-5f10-4e21-9b7a-5eb300ab3c8c", "to": "75d141ff-36bf-4cb0-8c0f-c96fc4c78b33", "id": "d8afe5d0-c663-4c7d-81b1-2d00e52b8d3b" },
+              { "from": "b3fa1190-0e91-4135-b25b-149284ec2301", "to": "24ce7a31-b2cc-4515-9eb7-76c3f2d2c0c6", "id": "71ebb693-fb79-41c3-8d70-b95f88b929e2" },
+              { "from": "a83876c9-deb7-45d1-a90e-7dcfcc56a90d", "to": "7d88c96a-b24c-4cb7-bb2b-cf3909b006ee", "id": "41c2b31a-49e7-482b-8d74-5c8fca7133c4" },
+              { "from": "72890443-1ef1-4fc9-990c-6a1e43726a97", "to": "f84c3424-fdfd-45e6-a92a-e0531e50fb97", "id": "fb46764d-23a7-4cc1-b06b-1a6072aab457" },
+              { "from": "bcf7b142-4408-4f03-8124-1ad306ba3d60", "to": "71e2ff48-e653-4890-ab91-323226450e7c", "id": "cf006cc7-bcb5-43a9-af46-a001469c1a68" },
+              { "from": "b8cb2e96-cdb8-4389-9dc4-acc0e8656e9b", "to": "bc9ebabc-29dd-46dc-8c19-71d096bf8918", "id": "323ad5a0-b03e-4ec9-8a4a-50a7b554831a" }
             ] },
           "function_category": "Default Node",
           "meta_data_map": [
@@ -6129,6 +6216,143 @@
             { "key": "PluginVersion", "value": "2.4.0" }
           ],
           "plugin_version": { "major": 2, "minor": 7, "patch": 1 }
+        },
+        {
+          "id": "c1795e58-6b10-4089-a95f-499d75c0dac9",
+          "name": "BillboardPositions",
+          "class_name": "nos.graphics.BillboardPositions",
+          "pins": [
+            {
+              "id": "24df7f98-6dc1-4418-87a8-ae970ba524a9",
+              "name": "Position",
+              "type_name": "nos.fb.vec3",
+              "show_as": "INPUT_PIN",
+              "can_show_as": "INPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": { "x": -59.0, "y": -159.0, "z": 16.4 },
+              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "42de4baf-f4a8-43b3-9538-9e48d2b56c1c",
+              "name": "Width",
+              "type_name": "float",
+              "show_as": "INPUT_PIN",
+              "can_show_as": "INPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": 501.200012,
+              "def": 100.0,
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "18ffdc83-e668-414b-ba8d-14243993e8c0",
+              "name": "Height",
+              "type_name": "float",
+              "show_as": "INPUT_PIN",
+              "can_show_as": "INPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": 534.099976,
+              "def": 100.0,
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "b1f5ec99-aad7-437c-a4da-48d40682ee99",
+              "name": "RenderView",
+              "type_name": "nos.graphics.RenderView",
+              "show_as": "INPUT_PIN",
+              "can_show_as": "INPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": { "view": { "x": { "x": 0.11046, "y": 0.0, "z": -0.993881, "w": 0.0 }, "y": { "x": -0.993881, "y": 0.0, "z": -0.11046, "w": 0.0 }, "z": { "x": 0.0, "y": 1.0, "z": 0.0, "w": 0.0 }, "w": { "x": -237.283401, "y": -184.400009, "z": 360.595337, "w": 1.0 } }, "left_handed_projection_matrix": { "x": { "x": 1.327045, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": -2.359355, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 1.00001, "w": 1.0 }, "w": { "x": 0.0, "y": 0.0, "z": -0.100001, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.1, "y": 10000.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { "aspect_ratio": 1.777901, "fov_x": 74.0 }
+                } },
+              "min": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.0, "y": 0.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { },
+                  "orthographic": { }
+                } },
+              "max": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.0, "y": 0.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { },
+                  "orthographic": { }
+                } },
+              "def": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
+                  "clip_planes": { "x": 0.0, "y": 0.0 },
+                  "center_shift": { "x": 0.0, "y": 0.0 },
+                  "perspective": { },
+                  "orthographic": { }
+                } },
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "ea86a5f6-0bcc-4d97-9510-85ee81d65fec",
+              "name": "BottomLeft",
+              "type_name": "nos.fb.vec3",
+              "show_as": "OUTPUT_PIN",
+              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": { "x": -38.170128, "y": 90.732834, "z": 16.4 },
+              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "29297ec8-e453-4a64-b62f-a5a5fd28ac4a",
+              "name": "BottomRight",
+              "type_name": "nos.fb.vec3",
+              "show_as": "OUTPUT_PIN",
+              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": { "x": -79.829872, "y": -408.732849, "z": 16.4 },
+              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "2399c9fb-ff81-4b3c-9d87-f00c42d47211",
+              "name": "TopLeft",
+              "type_name": "nos.fb.vec3",
+              "show_as": "OUTPUT_PIN",
+              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": { "x": -38.170128, "y": 90.732834, "z": 550.5 },
+              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "675e963b-311f-4275-bd87-d3e6b01e5628",
+              "name": "TopRight",
+              "type_name": "nos.fb.vec3",
+              "show_as": "OUTPUT_PIN",
+              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
+              "visualizer": {
+              },
+              "data": { "x": -79.829872, "y": -408.732849, "z": 550.5 },
+              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
+              "contents_type": "JobPin",
+              "contents": { }
+            }
+          ],
+          "pos": { "x": -160.666672, "y": 193.666687 },
+          "contents_type": "Job",
+          "contents": { "type": "" },
+          "function_category": "Default Node",
+          "plugin_version": { "major": 0, "minor": 2, "patch": 0 }
         },
         {
           "id": "c75389c5-ec87-4f90-a3ae-87ff9abcb058",
@@ -6346,7 +6570,7 @@
               "display_name": "Enable Sync"
             }
           ],
-          "pos": { "x": -451.0, "y": 465.0 },
+          "pos": { "x": -691.666687, "y": -243.333313 },
           "contents_type": "Graph",
           "contents": { "nodes": [
               {
@@ -7673,7 +7897,7 @@
                     "can_show_as": "INPUT_PIN_ONLY",
                     "visualizer": {
                     },
-                    "data": 402661,
+                    "data": 457729,
                     "def": 0,
                     "meta_data_map": [
                       { "key": "Category", "value": "" }
@@ -8358,10 +8582,10 @@
                       "plugin_version": { "major": 0, "minor": 0, "patch": 0 }
                     }
                   ], "connections": [
-                    { "from": "f50aab56-aa82-4330-a24e-b2664e8b32a4", "to": "672f9a8d-52db-45ee-86dc-4e900025d094", "id": "495c8521-5ba0-43f3-96a8-ccb28900668f" },
-                    { "from": "e87e0023-c98d-41f9-9220-3844d04429f5", "to": "c25fe8cd-82a0-4bb2-874c-c5502d32a9a3", "id": "4103f342-abd1-49c7-850d-eef5ea6bda8b" },
-                    { "from": "65379289-8dc5-4d0c-b564-669bd0eaaf44", "to": "d1750ca8-f751-4e7c-b916-423ac710020d", "id": "26bf35c7-1c21-45cd-b900-1f5ad2dc71d3" },
-                    { "from": "ec56e59e-80b1-4266-9348-77e369356cd9", "to": "30f76e7f-ddba-49ff-9c45-179474542db0", "id": "53e7f357-e08d-4e51-9ba1-c27ab4c8b240" }
+                    { "from": "e87e0023-c98d-41f9-9220-3844d04429f5", "to": "c25fe8cd-82a0-4bb2-874c-c5502d32a9a3", "id": "9b55fb46-76d4-42f2-ad54-847608fe65d5" },
+                    { "from": "f50aab56-aa82-4330-a24e-b2664e8b32a4", "to": "672f9a8d-52db-45ee-86dc-4e900025d094", "id": "afd4a12a-27e0-4444-92d2-835bc8c3d630" },
+                    { "from": "ec56e59e-80b1-4266-9348-77e369356cd9", "to": "30f76e7f-ddba-49ff-9c45-179474542db0", "id": "6103a134-fd1e-46e4-80ba-6a84fdf12dac" },
+                    { "from": "65379289-8dc5-4d0c-b564-669bd0eaaf44", "to": "d1750ca8-f751-4e7c-b916-423ac710020d", "id": "35527211-bf9a-401a-8afd-9443d59a82ca" }
                   ] },
                 "function_category": "Default Node",
                 "plugin_version": { "major": 3, "minor": 14, "patch": 5 }
@@ -8894,8 +9118,7 @@
                 "function_category": "Default Node",
                 "status_messages": [
                   { "text": "Corvid44-8K - 0" },
-                  { "text": "Ch1 1080p59.94a" },
-                  { "text": "Drop Count: 2", "type": "WARNING" }
+                  { "text": "Ch1 1080p59.94a" }
                 ],
                 "description": "Debugging/test node for opening channels",
                 "display_name": "AJA Channel",
@@ -9136,7 +9359,7 @@
                     "can_show_as": "OUTPUT_PIN_ONLY",
                     "visualizer": {
                     },
-                    "data": 402662,
+                    "data": 457730,
                     "def": 0,
                     "meta_data_map": [
                       { "key": "Category", "value": "" }
@@ -9350,39 +9573,39 @@
                 "bg_color": { "x": 0.783186, "y": 0.696244, "z": 0.502486, "w": 0.3 }
               }
             ], "connections": [
-              { "from": "b7a0dac2-ce93-43b5-84c3-b241535faf52", "to": "70e01884-3238-4843-bb7f-47547d210d25", "id": "8703e380-aba6-45d0-93ae-80985a15210a" },
-              { "from": "8c17a4c8-3e9f-4046-90ab-1feb6b3eb8af", "to": "0b1a2954-743c-4604-8209-b332a1d042fb", "id": "a3f09bbe-8924-42a2-8238-d330c878aca8" },
-              { "from": "6277412e-83c6-453a-bc40-662cc3d246bb", "to": "1934b75f-ba77-481f-bfa0-8a8979f740fc", "id": "99b3b1fa-09c2-41d6-8e07-e9c5e92326fb" },
-              { "from": "80e52329-727f-4dd2-b588-6fc709899460", "to": "3fcd2a42-9008-4576-ae57-5d321ae2fb53", "id": "d443a135-4943-40a4-9a83-7ac7baa39349" },
-              { "from": "06f93da6-2947-44a6-a135-50c3830d66d0", "to": "e7bd3fa0-364f-4690-bf3d-f557d3e37ff1", "id": "a43ab4f4-12b0-423e-9fec-ecd3dd5cb88e" },
-              { "from": "f0a88dbb-4ed8-4ddb-ba2b-f38bf0882650", "to": "8aa7304d-592b-459f-a0e2-cda920954981", "id": "74d39d67-b7c8-4970-a1fb-8531fde51c5c" },
-              { "from": "f5ec3b1b-1517-4b92-94f2-578e09bd69eb", "to": "0724d8fe-7147-4457-a35d-da5327c3d041", "id": "77ba08da-e3ff-44b2-bcc6-12db584ce721" },
-              { "from": "22cf4727-9508-4923-adc4-7c17e7e79bc2", "to": "6341b7c0-8f1f-4e27-a40f-46a2ecf65f9a", "id": "5ff3f834-d767-43bd-870e-33b8a381f1fe" },
-              { "from": "2d125823-ee84-4214-a2f2-3109c4865a78", "to": "df43808b-b2a3-4ffb-9d44-aa0b28b6f59f", "id": "ac0823ad-e765-4f97-9435-6001b4434b54" },
-              { "from": "7575639a-3a96-45fe-82bb-bbe6ccbc9b08", "to": "f1512094-d196-4171-96af-a6ddb122faee", "id": "7d4e44d1-99df-4ace-8c03-ba687cccded8" },
-              { "from": "0acff4bd-9363-4a28-b19c-0eae0a1448c8", "to": "d0620e26-3bc8-4229-942e-79a632b7c6cb", "id": "064f2557-1b97-4d7e-8f35-8c92bdc9c5a8" },
-              { "from": "fb3e0eeb-d415-492a-94d4-9f422dac013f", "to": "be6d8f97-d691-42cf-a6fd-364f17cccd95", "id": "8b827fc0-4f51-48bd-9c46-dee14e28722b" },
-              { "from": "f97f6ce7-4131-4d85-9932-06e04c9c974e", "to": "821de384-f17d-4d2f-a8a2-cc77ea53c147", "id": "e2a39b21-ea10-401d-b143-ddbd1f047ebe" },
-              { "from": "cb6270ac-4439-4082-b51d-3b529c577468", "to": "b91c388e-6173-45e1-9580-085f24f52f2c", "id": "f1361618-2f94-4e57-8644-900565b9d273" },
-              { "from": "439f4a09-d572-49e8-af11-0f27e5cfca36", "to": "69af3181-ab0f-46ff-9011-3ed15f950af0", "id": "a6bf6a2a-d40d-4cb1-861b-0f4f0d902e3c" },
-              { "from": "f5ec3b1b-1517-4b92-94f2-578e09bd69eb", "to": "045a60f9-f47c-4440-a7e2-859f04fe54b8", "id": "e2d1398a-fed1-489a-bccb-aa5edf7ed617" },
-              { "from": "75d2e75e-5a5d-4d76-8519-d3d793446a37", "to": "0b3b2c51-9c2f-4579-8b76-27bfd000733a", "id": "92e75d33-b5fa-4c04-bfcf-b8542f495449" },
-              { "from": "4bae3097-1956-4d07-bb8b-a0763969c307", "to": "b5c8c9da-b5e1-4d00-ba26-53989bf1159e", "id": "7fb55f72-de44-4655-b9e0-d59e480c4f3c" },
-              { "from": "5fda6a3e-62f3-426b-993b-3b432206ac7b", "to": "fff2655a-31fe-4f45-b2c4-de2beb848537", "id": "4fb7909f-fe61-47c5-9fb7-b16007228f51" },
-              { "from": "c5faa217-c420-4723-9661-0fe5eb298d7f", "to": "7da707ce-62ae-4469-a1c7-bb5ff4b42fde", "id": "1d78c185-e7af-476b-82a1-31d212a75a8e" },
-              { "from": "c0ceea04-348b-4815-a743-47c3512a4888", "to": "fa18832e-a521-4944-9423-453d67f6ecc5", "id": "553057b3-bb1c-48ca-8c4c-4721fda56b2f" },
-              { "from": "ae5e63ea-8f18-4ef8-889c-66535560c79d", "to": "349b66d6-53a9-41ca-a6f9-353ebeeabcc2", "id": "98bfc46b-bd06-46e8-a218-1980000a2bf3" },
-              { "from": "91ceaaea-4191-4259-bb3d-a2eb4c36efa1", "to": "d57d1e01-d552-4010-9453-0040a9e94833", "id": "ba73c131-7718-4464-9019-cbfa309fc4b5" },
-              { "from": "313f9e03-7343-408a-b67a-9b8908beb320", "to": "0de15be1-79f9-4697-9ee4-78d32823e296", "id": "41d674ca-9670-4743-8de8-1c38f5b35548" },
-              { "from": "f355cd9d-83b3-41c6-be73-20f99c4eb98a", "to": "6bae8f02-9e15-474a-b873-199569069f77", "id": "ce2d1202-93e2-4896-b815-64cce0e7e13d" },
-              { "from": "ec2d0ab4-ad3f-4738-a728-bb9c732f23af", "to": "dff2f77c-3a88-47f9-b9f0-850022d14936", "id": "c8698b95-5512-4911-bc10-52d6efe6e8d0" },
-              { "from": "33c7ddee-5696-428f-ad5a-8763e8d90268", "to": "66b1ead9-7391-4c85-9f8f-a9bc99f9ba1b", "id": "4ba089cd-2132-434c-9ccb-f38e2d1792ec" },
-              { "from": "ec06b468-3dba-4152-aa8b-e4aaee84a40e", "to": "ba1b4812-21d8-4d11-b3d6-f7b3ad67cfce", "id": "aa300e0a-8be0-431d-903e-97a3f9dee484" },
-              { "from": "85414e2b-b07a-4fbc-a6ca-d57e885cac3d", "to": "52bb95bb-e07e-466f-b19e-0ec42074e0c6", "id": "9de95caa-0004-4d0f-997b-d45258cfa498" },
-              { "from": "ade5734d-5dfe-499a-859a-dbf4a1d94f99", "to": "ab5acf51-a862-4d61-ad9a-8f358f10f107", "id": "4bd3350e-096a-46e8-8688-610ef966c335" },
-              { "from": "c2694a96-4d95-4e77-8049-c03173743f4b", "to": "077ab49d-6429-49a6-8474-55804bf1d208", "id": "7a6f8b08-8ecc-46a4-89b5-64fe2543105f" },
-              { "from": "7575639a-3a96-45fe-82bb-bbe6ccbc9b08", "to": "9f11c617-ca70-4302-86d9-6611def06d37", "id": "2195aa0d-2efb-4ed5-921a-7381c51e1d61" },
-              { "from": "8c94f20c-6718-4c09-81d8-9b98d535de66", "to": "4fad1ac4-ecb9-40ae-a66b-485092a2bcf6", "id": "91137b7a-ceab-469b-ab8f-dacf839babe7" }
+              { "from": "85414e2b-b07a-4fbc-a6ca-d57e885cac3d", "to": "52bb95bb-e07e-466f-b19e-0ec42074e0c6", "id": "b8f71fad-379d-4b57-aa6d-eeff444bda0c" },
+              { "from": "f5ec3b1b-1517-4b92-94f2-578e09bd69eb", "to": "0724d8fe-7147-4457-a35d-da5327c3d041", "id": "ac732b6f-8186-493f-a665-9d9fb6977d24" },
+              { "from": "439f4a09-d572-49e8-af11-0f27e5cfca36", "to": "69af3181-ab0f-46ff-9011-3ed15f950af0", "id": "f770ffbf-3ad3-414b-a9ca-8f88484f6268" },
+              { "from": "fb3e0eeb-d415-492a-94d4-9f422dac013f", "to": "be6d8f97-d691-42cf-a6fd-364f17cccd95", "id": "cf371bd6-93f8-4376-be31-6c498f4d1f55" },
+              { "from": "8c17a4c8-3e9f-4046-90ab-1feb6b3eb8af", "to": "0b1a2954-743c-4604-8209-b332a1d042fb", "id": "604a3a7f-b221-40c2-8c7a-1c72ddcc6371" },
+              { "from": "80e52329-727f-4dd2-b588-6fc709899460", "to": "3fcd2a42-9008-4576-ae57-5d321ae2fb53", "id": "1c8745f5-006e-45be-9bfa-1330069e0d4c" },
+              { "from": "06f93da6-2947-44a6-a135-50c3830d66d0", "to": "e7bd3fa0-364f-4690-bf3d-f557d3e37ff1", "id": "63ce8766-0b13-45bb-a3e2-e0954396a114" },
+              { "from": "8c94f20c-6718-4c09-81d8-9b98d535de66", "to": "4fad1ac4-ecb9-40ae-a66b-485092a2bcf6", "id": "aab42860-b632-4bdc-a909-c6c747e8cdd0" },
+              { "from": "c2694a96-4d95-4e77-8049-c03173743f4b", "to": "077ab49d-6429-49a6-8474-55804bf1d208", "id": "814e4d33-0512-4913-bceb-2e988c942d9f" },
+              { "from": "f0a88dbb-4ed8-4ddb-ba2b-f38bf0882650", "to": "8aa7304d-592b-459f-a0e2-cda920954981", "id": "73a62f5b-180d-4422-98cc-438a1bf2812e" },
+              { "from": "2d125823-ee84-4214-a2f2-3109c4865a78", "to": "df43808b-b2a3-4ffb-9d44-aa0b28b6f59f", "id": "ab3ebe52-4c51-4e42-9dd6-7e14b52e6d02" },
+              { "from": "f5ec3b1b-1517-4b92-94f2-578e09bd69eb", "to": "045a60f9-f47c-4440-a7e2-859f04fe54b8", "id": "be6b3216-3053-4157-94d7-029607cabf82" },
+              { "from": "b7a0dac2-ce93-43b5-84c3-b241535faf52", "to": "70e01884-3238-4843-bb7f-47547d210d25", "id": "4242a951-3886-4a60-ab31-aeac4332db35" },
+              { "from": "f97f6ce7-4131-4d85-9932-06e04c9c974e", "to": "821de384-f17d-4d2f-a8a2-cc77ea53c147", "id": "1f7c44a8-2c13-45df-93f6-676eb336692b" },
+              { "from": "ec06b468-3dba-4152-aa8b-e4aaee84a40e", "to": "ba1b4812-21d8-4d11-b3d6-f7b3ad67cfce", "id": "cf7720e2-e16a-40aa-811c-89057005ac39" },
+              { "from": "0acff4bd-9363-4a28-b19c-0eae0a1448c8", "to": "d0620e26-3bc8-4229-942e-79a632b7c6cb", "id": "111d6c7c-f390-4d53-a4d3-06679f52f5c0" },
+              { "from": "91ceaaea-4191-4259-bb3d-a2eb4c36efa1", "to": "d57d1e01-d552-4010-9453-0040a9e94833", "id": "bf7940b0-d199-4f83-98a9-b49d0a0b77c7" },
+              { "from": "ae5e63ea-8f18-4ef8-889c-66535560c79d", "to": "349b66d6-53a9-41ca-a6f9-353ebeeabcc2", "id": "0c30e416-bfe8-4d11-b598-6004a085ff55" },
+              { "from": "cb6270ac-4439-4082-b51d-3b529c577468", "to": "b91c388e-6173-45e1-9580-085f24f52f2c", "id": "7763055a-c78b-4f42-b9ad-7e74dd342906" },
+              { "from": "75d2e75e-5a5d-4d76-8519-d3d793446a37", "to": "0b3b2c51-9c2f-4579-8b76-27bfd000733a", "id": "436e91e3-0cf1-464e-9c04-cd738fbff248" },
+              { "from": "4bae3097-1956-4d07-bb8b-a0763969c307", "to": "b5c8c9da-b5e1-4d00-ba26-53989bf1159e", "id": "a5ea9db7-f7f5-4a6f-8335-da708e36e217" },
+              { "from": "5fda6a3e-62f3-426b-993b-3b432206ac7b", "to": "fff2655a-31fe-4f45-b2c4-de2beb848537", "id": "b572c7a7-ddcf-43ac-8b23-8f4c6071fb59" },
+              { "from": "f355cd9d-83b3-41c6-be73-20f99c4eb98a", "to": "6bae8f02-9e15-474a-b873-199569069f77", "id": "20a58a80-2d8c-4c76-b4b4-afb5ef74755e" },
+              { "from": "c0ceea04-348b-4815-a743-47c3512a4888", "to": "fa18832e-a521-4944-9423-453d67f6ecc5", "id": "bd7da4d5-73c0-4ff1-8049-e06a8093c699" },
+              { "from": "313f9e03-7343-408a-b67a-9b8908beb320", "to": "0de15be1-79f9-4697-9ee4-78d32823e296", "id": "8b0e9379-5205-4827-9ce8-864391116770" },
+              { "from": "ec2d0ab4-ad3f-4738-a728-bb9c732f23af", "to": "dff2f77c-3a88-47f9-b9f0-850022d14936", "id": "4a2ad19f-e004-46b3-a934-a0f7632de7ce" },
+              { "from": "33c7ddee-5696-428f-ad5a-8763e8d90268", "to": "66b1ead9-7391-4c85-9f8f-a9bc99f9ba1b", "id": "2740e05a-9f30-4f19-88ec-5ec0535d5f18" },
+              { "from": "ade5734d-5dfe-499a-859a-dbf4a1d94f99", "to": "ab5acf51-a862-4d61-ad9a-8f358f10f107", "id": "0481cf06-2448-4fff-9a2c-d8f1e6eb9d27" },
+              { "from": "c5faa217-c420-4723-9661-0fe5eb298d7f", "to": "7da707ce-62ae-4469-a1c7-bb5ff4b42fde", "id": "c912a1f5-5fb5-4c75-b25d-73aab01e457e" },
+              { "from": "22cf4727-9508-4923-adc4-7c17e7e79bc2", "to": "6341b7c0-8f1f-4e27-a40f-46a2ecf65f9a", "id": "ee53f4c6-1767-43ae-a601-bfbc0d7f2adf" },
+              { "from": "7575639a-3a96-45fe-82bb-bbe6ccbc9b08", "to": "f1512094-d196-4171-96af-a6ddb122faee", "id": "e7fb0932-5bbc-4bb9-963e-98200dbb27dd" },
+              { "from": "7575639a-3a96-45fe-82bb-bbe6ccbc9b08", "to": "9f11c617-ca70-4302-86d9-6611def06d37", "id": "82af818b-78eb-4eb9-8b08-04b1be207847" },
+              { "from": "6277412e-83c6-453a-bc40-662cc3d246bb", "to": "1934b75f-ba77-481f-bfa0-8a8979f740fc", "id": "15e15236-2a23-4920-952c-996bd68f993e" }
             ] },
           "function_category": "Default Node",
           "meta_data_map": [
@@ -10510,12 +10733,90 @@
               "contents": { }
             }
           ],
-          "pos": { "x": 202.0, "y": 591.0 },
+          "pos": { "x": -38.666672, "y": -117.333313 },
           "contents_type": "Job",
           "contents": { "type": "" },
           "function_category": "Default Node",
           "description": "Creates an Image-Based Key using Color Differencing algorithms using CleanPlate input.\nReality Keyer can also generate a core matte and combine it with soft mattes.\nIt also has green screen subtraction and despilling algorithms for the fill image.\nReality Keyer also accepts a mask texture to be used as Garbage, Force-Fill and Spill-Bypass masks.",
           "plugin_version": { "major": 1, "minor": 8, "patch": 1 }
+        },
+        {
+          "id": "d9f10048-f568-4210-a30d-993c4a1799c6",
+          "name": "Reroute",
+          "class_name": "nos.internal.Reroute",
+          "pins": [
+            {
+              "id": "3c3cfa89-e73e-4bad-b450-a7b460936a39",
+              "name": "Input",
+              "type_name": "zd.sys.track.Track",
+              "show_as": "INPUT_PIN",
+              "can_show_as": "INPUT_PIN_ONLY",
+              "visualizer": {
+              },
+              "data": {
+                "location": { "x": 384.598999, "y": -196.0, "z": 184.399994 },
+                "rotation": { "x": -0.0, "y": 0.0, "z": -173.658325 },
+                "fov": 74.0,
+                "focus": 0.3755,
+                "render_ratio": 1.0,
+                "sensor_size": { "x": 9.59, "y": 5.394 },
+                "pixel_aspect_ratio": 1.0,
+                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
+              },
+              "def": {
+                "location": { "x": 600.0, "y": 50.0, "z": 100.0 },
+                "rotation": { "x": 0.0, "y": 0.0, "z": 180.0 },
+                "fov": 74.0,
+                "render_ratio": 1.0,
+                "sensor_size": { "x": 9.59, "y": 5.394 },
+                "pixel_aspect_ratio": 1.0,
+                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
+              },
+              "meta_data_map": [
+                { "key": "PinHidden", "value": "true" }
+              ],
+              "contents_type": "JobPin",
+              "contents": { }
+            },
+            {
+              "id": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9",
+              "name": "Output",
+              "type_name": "zd.sys.track.Track",
+              "show_as": "OUTPUT_PIN",
+              "can_show_as": "OUTPUT_PIN_ONLY",
+              "visualizer": {
+              },
+              "data": {
+                "location": { "x": 384.598999, "y": -196.0, "z": 184.399994 },
+                "rotation": { "x": -0.0, "y": 0.0, "z": -173.658325 },
+                "fov": 74.0,
+                "focus": 0.3755,
+                "render_ratio": 1.0,
+                "sensor_size": { "x": 9.59, "y": 5.394 },
+                "pixel_aspect_ratio": 1.0,
+                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
+              },
+              "def": {
+                "location": { "x": 600.0, "y": 50.0, "z": 100.0 },
+                "rotation": { "x": 0.0, "y": 0.0, "z": 180.0 },
+                "fov": 74.0,
+                "render_ratio": 1.0,
+                "sensor_size": { "x": 9.59, "y": 5.394 },
+                "pixel_aspect_ratio": 1.0,
+                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
+              },
+              "meta_data_map": [
+                { "key": "PinHidden", "value": "true" }
+              ],
+              "contents_type": "JobPin",
+              "contents": { }
+            }
+          ],
+          "pos": { "x": -475.666687, "y": 58.666687 },
+          "contents_type": "Job",
+          "contents": { "type": "" },
+          "function_category": "Default Node",
+          "plugin_version": { "major": 0, "minor": 0, "patch": 0 }
         },
         {
           "id": "88b8ba44-1149-4a6e-ada5-5f452df4f680",
@@ -11363,7 +11664,7 @@
               "contents": { }
             }
           ],
-          "pos": { "x": -101.0, "y": 600.0 },
+          "pos": { "x": -341.666687, "y": -108.333313 },
           "contents_type": "Job",
           "contents": { "type": "" },
           "functions": [
@@ -11464,314 +11765,6 @@
           ],
           "function_category": "Default Node",
           "plugin_version": { "major": 1, "minor": 8, "patch": 1 }
-        },
-        {
-          "id": "d9f10048-f568-4210-a30d-993c4a1799c6",
-          "name": "Reroute",
-          "class_name": "nos.internal.Reroute",
-          "pins": [
-            {
-              "id": "3c3cfa89-e73e-4bad-b450-a7b460936a39",
-              "name": "Input",
-              "type_name": "zd.sys.track.Track",
-              "show_as": "INPUT_PIN",
-              "can_show_as": "INPUT_PIN_ONLY",
-              "visualizer": {
-              },
-              "data": {
-                "location": { "x": 384.598999, "y": -196.0, "z": 184.399994 },
-                "rotation": { "x": -0.0, "y": 0.0, "z": -173.658325 },
-                "fov": 74.0,
-                "focus": 0.3755,
-                "render_ratio": 1.0,
-                "sensor_size": { "x": 9.59, "y": 5.394 },
-                "pixel_aspect_ratio": 1.0,
-                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
-              },
-              "def": {
-                "location": { "x": 600.0, "y": 50.0, "z": 100.0 },
-                "rotation": { "x": 0.0, "y": 0.0, "z": 180.0 },
-                "fov": 74.0,
-                "render_ratio": 1.0,
-                "sensor_size": { "x": 9.59, "y": 5.394 },
-                "pixel_aspect_ratio": 1.0,
-                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
-              },
-              "meta_data_map": [
-                { "key": "PinHidden", "value": "true" }
-              ],
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9",
-              "name": "Output",
-              "type_name": "zd.sys.track.Track",
-              "show_as": "OUTPUT_PIN",
-              "can_show_as": "OUTPUT_PIN_ONLY",
-              "visualizer": {
-              },
-              "data": {
-                "location": { "x": 384.598999, "y": -196.0, "z": 184.399994 },
-                "rotation": { "x": -0.0, "y": 0.0, "z": -173.658325 },
-                "fov": 74.0,
-                "focus": 0.3755,
-                "render_ratio": 1.0,
-                "sensor_size": { "x": 9.59, "y": 5.394 },
-                "pixel_aspect_ratio": 1.0,
-                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
-              },
-              "def": {
-                "location": { "x": 600.0, "y": 50.0, "z": 100.0 },
-                "rotation": { "x": 0.0, "y": 0.0, "z": 180.0 },
-                "fov": 74.0,
-                "render_ratio": 1.0,
-                "sensor_size": { "x": 9.59, "y": 5.394 },
-                "pixel_aspect_ratio": 1.0,
-                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
-              },
-              "meta_data_map": [
-                { "key": "PinHidden", "value": "true" }
-              ],
-              "contents_type": "JobPin",
-              "contents": { }
-            }
-          ],
-          "pos": { "x": -235.0, "y": 767.0 },
-          "contents_type": "Job",
-          "contents": { "type": "" },
-          "function_category": "Default Node",
-          "plugin_version": { "major": 0, "minor": 0, "patch": 0 }
-        },
-        {
-          "id": "c1795e58-6b10-4089-a95f-499d75c0dac9",
-          "name": "BillboardPositions",
-          "class_name": "nos.graphics.BillboardPositions",
-          "pins": [
-            {
-              "id": "24df7f98-6dc1-4418-87a8-ae970ba524a9",
-              "name": "Position",
-              "type_name": "nos.fb.vec3",
-              "show_as": "INPUT_PIN",
-              "can_show_as": "INPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": { "x": -59.0, "y": -159.0, "z": 16.4 },
-              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "42de4baf-f4a8-43b3-9538-9e48d2b56c1c",
-              "name": "Width",
-              "type_name": "float",
-              "show_as": "INPUT_PIN",
-              "can_show_as": "INPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": 501.200012,
-              "def": 100.0,
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "18ffdc83-e668-414b-ba8d-14243993e8c0",
-              "name": "Height",
-              "type_name": "float",
-              "show_as": "INPUT_PIN",
-              "can_show_as": "INPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": 534.099976,
-              "def": 100.0,
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "b1f5ec99-aad7-437c-a4da-48d40682ee99",
-              "name": "RenderView",
-              "type_name": "nos.graphics.RenderView",
-              "show_as": "INPUT_PIN",
-              "can_show_as": "INPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": { "view": { "x": { "x": 0.11046, "y": 0.0, "z": -0.993881, "w": 0.0 }, "y": { "x": -0.993881, "y": 0.0, "z": -0.11046, "w": 0.0 }, "z": { "x": 0.0, "y": 1.0, "z": 0.0, "w": 0.0 }, "w": { "x": -237.283401, "y": -184.400009, "z": 360.595337, "w": 1.0 } }, "left_handed_projection_matrix": { "x": { "x": 1.327045, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": -2.359355, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 1.00001, "w": 1.0 }, "w": { "x": 0.0, "y": 0.0, "z": -0.100001, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.1, "y": 10000.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "perspective": { "aspect_ratio": 1.777901, "fov_x": 74.0 }
-                } },
-              "min": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.0, "y": 0.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "projection_type": "Perspective",
-                  "perspective": { "aspect_ratio": 0.0, "fov_x": 0.0 },
-                  "orthographic": { "width": 0.0, "height": 0.0 }
-                } },
-              "max": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.0, "y": 0.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "projection_type": "Perspective",
-                  "perspective": { "aspect_ratio": 0.0, "fov_x": 0.0 },
-                  "orthographic": { "width": 0.0, "height": 0.0 }
-                } },
-              "def": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.0, "y": 0.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "perspective": { },
-                  "orthographic": { }
-                } },
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "ea86a5f6-0bcc-4d97-9510-85ee81d65fec",
-              "name": "BottomLeft",
-              "type_name": "nos.fb.vec3",
-              "show_as": "OUTPUT_PIN",
-              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": { "x": -38.170128, "y": 90.732834, "z": 16.4 },
-              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "29297ec8-e453-4a64-b62f-a5a5fd28ac4a",
-              "name": "BottomRight",
-              "type_name": "nos.fb.vec3",
-              "show_as": "OUTPUT_PIN",
-              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": { "x": -79.829872, "y": -408.732849, "z": 16.4 },
-              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "2399c9fb-ff81-4b3c-9d87-f00c42d47211",
-              "name": "TopLeft",
-              "type_name": "nos.fb.vec3",
-              "show_as": "OUTPUT_PIN",
-              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": { "x": -38.170128, "y": 90.732834, "z": 550.5 },
-              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "675e963b-311f-4275-bd87-d3e6b01e5628",
-              "name": "TopRight",
-              "type_name": "nos.fb.vec3",
-              "show_as": "OUTPUT_PIN",
-              "can_show_as": "OUTPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": { "x": -79.829872, "y": -408.732849, "z": 550.5 },
-              "def": { "x": 0.0, "y": 0.0, "z": 0.0 },
-              "contents_type": "JobPin",
-              "contents": { }
-            }
-          ],
-          "pos": { "x": 80.0, "y": 902.0 },
-          "contents_type": "Job",
-          "contents": { "type": "" },
-          "function_category": "Default Node",
-          "plugin_version": { "major": 0, "minor": 1, "patch": 0 }
-        },
-        {
-          "id": "81220d48-5216-4b74-aa38-a39ebe1b1467",
-          "name": "TrackToView",
-          "class_name": "nos.graphics.TrackToView",
-          "pins": [
-            {
-              "id": "f3a10eac-4b2e-49e9-aa9d-9372633d2363",
-              "name": "Track",
-              "type_name": "zd.sys.track.Track",
-              "show_as": "INPUT_PIN",
-              "can_show_as": "INPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": {
-                "location": { "x": 384.598999, "y": -196.0, "z": 184.399994 },
-                "rotation": { "x": -0.0, "y": 0.0, "z": -173.658325 },
-                "fov": 74.0,
-                "focus": 0.3755,
-                "render_ratio": 1.0,
-                "sensor_size": { "x": 9.59, "y": 5.394 },
-                "pixel_aspect_ratio": 1.0,
-                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
-              },
-              "def": {
-                "location": { "x": 600.0, "y": 50.0, "z": 100.0 },
-                "rotation": { "x": 0.0, "y": 0.0, "z": 180.0 },
-                "fov": 74.0,
-                "render_ratio": 1.0,
-                "sensor_size": { "x": 9.59, "y": 5.394 },
-                "pixel_aspect_ratio": 1.0,
-                "lens_distortion": { "k1k2": { "x": 0.0, "y": 0.0 }, "center_shift": { "x": 0.0, "y": 0.0 }, "distortion_scale": 1.0 }
-              },
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "06213ade-5efc-4c51-9d00-f14cf5549bb1",
-              "name": "Clip",
-              "type_name": "nos.fb.vec2",
-              "show_as": "INPUT_PIN",
-              "can_show_as": "INPUT_PIN_OR_PROPERTY",
-              "visualizer": {
-              },
-              "data": { "x": 0.1, "y": 10000.0 },
-              "def": { "x": 0.1, "y": 10000.0 },
-              "contents_type": "JobPin",
-              "contents": { }
-            },
-            {
-              "id": "fec33482-665c-4149-b95a-0ad4d557b103",
-              "name": "View",
-              "type_name": "nos.graphics.RenderView",
-              "show_as": "OUTPUT_PIN",
-              "can_show_as": "OUTPUT_PIN_ONLY",
-              "visualizer": {
-              },
-              "data": { "view": { "x": { "x": 0.11046, "y": 0.0, "z": -0.993881, "w": 0.0 }, "y": { "x": -0.993881, "y": 0.0, "z": -0.11046, "w": 0.0 }, "z": { "x": 0.0, "y": 1.0, "z": 0.0, "w": 0.0 }, "w": { "x": -237.283401, "y": -184.400009, "z": 360.595337, "w": 1.0 } }, "left_handed_projection_matrix": { "x": { "x": 1.327045, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": -2.359355, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 1.00001, "w": 1.0 }, "w": { "x": 0.0, "y": 0.0, "z": -0.100001, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.1, "y": 10000.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "perspective": { "aspect_ratio": 1.777901, "fov_x": 74.0 }
-                } },
-              "min": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.0, "y": 0.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "projection_type": "Perspective",
-                  "perspective": { "aspect_ratio": 0.0, "fov_x": 0.0 },
-                  "orthographic": { "width": 0.0, "height": 0.0 }
-                } },
-              "max": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.0, "y": 0.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "projection_type": "Perspective",
-                  "perspective": { "aspect_ratio": 0.0, "fov_x": 0.0 },
-                  "orthographic": { "width": 0.0, "height": 0.0 }
-                } },
-              "def": { "view": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "left_handed_projection_matrix": { "x": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "y": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "z": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }, "w": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 } }, "projection": {
-                  "clip_planes": { "x": 0.0, "y": 0.0 },
-                  "center_shift": { "x": 0.0, "y": 0.0 },
-                  "perspective": { },
-                  "orthographic": { }
-                } },
-              "contents_type": "JobPin",
-              "contents": { }
-            }
-          ],
-          "pos": { "x": -207.0, "y": 942.0 },
-          "contents_type": "Job",
-          "contents": { "type": "" },
-          "function_category": "Default Node",
-          "plugin_version": { "major": 0, "minor": 1, "patch": 0 }
         },
         {
           "id": "0069ac61-e1a5-4d00-9d58-94883c896cda",
@@ -11875,8 +11868,9 @@
                 "resolution": "HD",
                 "width": 1920,
                 "height": 1080,
-                "format": "R16G16B16A16_SFLOAT",
-                "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED STORAGE RENDER_TARGET"
+                "format": "R8G8B8A8_UNORM",
+                "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED",
+                "unscaled": true
               },
               "def": {
                 "width": 1920,
@@ -11984,13 +11978,13 @@
               "contents": { }
             }
           ],
-          "pos": { "x": 541.0, "y": 812.0 },
+          "pos": { "x": 300.333313, "y": 103.666687 },
           "contents_type": "Graph",
           "contents": { },
           "app_key": "DX-SceneRenderer",
           "function_category": "Default Node",
           "meta_data_map": [
-            { "key": "LaunchCommand", "value": "\"C:\\dev\\nodos-ws-1.3\\App\\dx-app-sample-advanced\\Binaries\\NosDxAppSampleAdv.exe\"" }
+            { "key": "LaunchCommand", "value": "\"C:\\dev\\nodos-ws-1.3\\App\\0.1.0\\dx-app-sample-advanced\\Binaries\\NosDxAppSampleAdv.exe\"" }
           ],
           "display_name": "DX-SceneRenderer",
           "plugin_version": { "major": 0, "minor": 0, "patch": 0 }
@@ -12307,7 +12301,7 @@
               "display_name": "Reflection Shadow Mask"
             }
           ],
-          "pos": { "x": 1125.0, "y": 689.0 },
+          "pos": { "x": 884.333313, "y": -19.333313 },
           "contents_type": "Job",
           "contents": { "type": "" },
           "function_category": "Default Node",
@@ -12607,11 +12601,11 @@
               "visualizer": {
               },
               "data": {
+                "resolution": "HD",
                 "width": 1920,
                 "height": 1080,
-                "format": "R8G8B8A8_UNORM",
-                "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED STORAGE RENDER_TARGET",
-                "unscaled": true
+                "format": "R16G16B16A16_SFLOAT",
+                "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED"
               },
               "def": {
                 "resolution": "HD",
@@ -12636,11 +12630,11 @@
               "visualizer": {
               },
               "data": {
+                "resolution": "HD",
                 "width": 1920,
                 "height": 1080,
-                "format": "R8G8B8A8_UNORM",
-                "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED STORAGE RENDER_TARGET",
-                "unscaled": true
+                "format": "R16G16B16A16_SFLOAT",
+                "usage": "TRANSFER_SRC TRANSFER_DST SAMPLED"
               },
               "def": {
                 "resolution": "HD",
@@ -12744,7 +12738,7 @@
               "contents": { }
             }
           ],
-          "pos": { "x": 855.0, "y": 780.0 },
+          "pos": { "x": 614.333313, "y": 71.666687 },
           "contents_type": "Job",
           "contents": { "type": "nos.sys.vulkan.GPUNode", "options": { "shader": "Shaders/Swizzle.frag" } },
           "function_category": "Default Node",
@@ -12758,31 +12752,31 @@
           "name": "Comment",
           "hint": "Hint",
           "content": "Key",
-          "pos": { "x": 83.0, "y": 523.0 },
+          "pos": { "x": -157.666672, "y": -185.333313 },
           "size": { "x": 561.0, "y": 234.0 },
           "bg_color": { "x": 0.9, "y": 0.9, "z": 0.9, "w": 0.3 }
         }
       ], "connections": [
-        { "from": "05e7c00a-4ad8-492d-9936-283b0786deee", "to": "e53dbe61-17d9-4f4d-b166-5f6226e28b34", "id": "fee464d7-2563-4b0b-b686-919b797e3533" },
-        { "from": "0c067840-4450-4e1c-a8e9-6571666e7e04", "to": "9646eda5-68fb-4f2d-a7f1-97dd81ec6c21", "id": "5e5d7600-d8f2-44b3-b290-ad85b80a5907" },
-        { "from": "05e7c00a-4ad8-492d-9936-283b0786deee", "to": "11412ef5-fc7f-4207-aa1a-928b8b6d1d19", "id": "8cecc5ca-ec8a-4c79-84fe-2405137c18cd" },
-        { "from": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9", "to": "3afb1931-5e58-4675-b870-b1d9c44a5898", "id": "e6ff3911-e817-46b2-9772-0ce6b7ba6ac2" },
-        { "from": "58204196-0fb5-4c2f-826b-466e8353d7ba", "to": "3c3cfa89-e73e-4bad-b450-a7b460936a39", "id": "9b8d3144-c44e-427c-bb6f-1f998bba7271" },
-        { "from": "fec33482-665c-4149-b95a-0ad4d557b103", "to": "b1f5ec99-aad7-437c-a4da-48d40682ee99", "id": "1f4bec26-5e85-4e05-baa7-1eb6ec7e27be" },
-        { "from": "29297ec8-e453-4a64-b62f-a5a5fd28ac4a", "to": "ead4af24-6f65-4726-8d8e-06a4d43752fe", "id": "1937b032-063d-4832-8706-6ce9c3d71d28" },
-        { "from": "e6713907-9d81-4d6b-90c8-19c5a089c943", "to": "1c354f1d-6290-4be0-b809-7bf8ed2ffca9", "id": "576ae65b-3a27-460c-9ef8-324868708796" },
-        { "from": "05e7c00a-4ad8-492d-9936-283b0786deee", "to": "d68c40eb-c463-4152-9c0b-f72c5c9c90d7", "id": "a0538af4-7730-43b2-8cdb-9cef32ad856d" },
-        { "from": "1d6fb89f-b73e-457f-ae15-83a2c155d236", "to": "ff12d13b-7e0e-427c-90dc-a2466f6c2af5", "id": "f48c8483-b5f3-4585-a6b7-1d33e56b2cec" },
-        { "from": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9", "to": "f3a10eac-4b2e-49e9-aa9d-9372633d2363", "id": "036c7a95-6cb9-4720-ae69-6c8373bc00e8" },
-        { "from": "ea86a5f6-0bcc-4d97-9510-85ee81d65fec", "to": "626f5f62-9a6b-438d-b447-c843c0322ff9", "id": "d7c59149-4d25-4268-a3ba-e028f16b15e0" },
-        { "from": "2399c9fb-ff81-4b3c-9d87-f00c42d47211", "to": "4c4ea457-da0a-47f5-a536-155bb47b7188", "id": "6db53fb0-41e3-4321-a4b0-45cee5a18cdc" },
-        { "from": "675e963b-311f-4275-bd87-d3e6b01e5628", "to": "8c11b61e-3d6e-442a-b4bd-a35d8ec85b72", "id": "2f9a7dea-6c64-449d-89d6-3e463068048a" },
-        { "from": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9", "to": "f245a64a-fd6f-43b4-949b-4e9df02af47a", "id": "216c1926-27ff-48d1-8b98-24b187cddeb9" },
-        { "from": "1d6fb89f-b73e-457f-ae15-83a2c155d236", "to": "2b476abc-4214-4957-af69-cca6ccf56656", "id": "9545f2c1-318a-4d5e-b1b9-2cf5207c9e2d" },
-        { "from": "0a35a322-30c1-43b0-9d94-9758f7436730", "to": "27ad4503-40f4-4b6f-8adc-c5cc121d1edc", "id": "405b4a2d-4d21-4b93-b517-167333d7691a" },
-        { "from": "a43b0769-bc36-410b-a51c-d30da89b4d9c", "to": "74abb486-f6a8-4331-8b9c-10d547237f61", "id": "2700f1bd-1d55-4397-a152-9b050144928f" },
-        { "from": "f17cb02f-481c-4e1e-a8ba-fa3cc9357ede", "to": "4e50b0df-af03-4a74-9d8f-ab647e53b56d", "id": "22bfc9ec-353d-42c6-b0b2-d9377c4e7c6a" },
-        { "from": "727c2205-f59e-457c-bbcf-d48923e85ec7", "to": "ccfbc3ad-3a98-4f39-ba0c-bb44e3669a50", "id": "e4a9dfa8-9ec8-466f-95f8-cc86252779bc" }
+        { "from": "58204196-0fb5-4c2f-826b-466e8353d7ba", "to": "3c3cfa89-e73e-4bad-b450-a7b460936a39", "id": "03a165a7-2e05-4a25-ad02-0e411c652e39" },
+        { "from": "0a35a322-30c1-43b0-9d94-9758f7436730", "to": "27ad4503-40f4-4b6f-8adc-c5cc121d1edc", "id": "185b5093-8544-4b46-84d5-2dc96f6a0272" },
+        { "from": "05e7c00a-4ad8-492d-9936-283b0786deee", "to": "e53dbe61-17d9-4f4d-b166-5f6226e28b34", "id": "dea47da9-3f6a-4244-88c5-cf7c4526d3f0" },
+        { "from": "0c067840-4450-4e1c-a8e9-6571666e7e04", "to": "9646eda5-68fb-4f2d-a7f1-97dd81ec6c21", "id": "7218aaa7-e473-4df0-b840-fc6982f2d3a3" },
+        { "from": "05e7c00a-4ad8-492d-9936-283b0786deee", "to": "11412ef5-fc7f-4207-aa1a-928b8b6d1d19", "id": "a5c44dab-835d-42e1-9ebd-da133d0b3272" },
+        { "from": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9", "to": "3afb1931-5e58-4675-b870-b1d9c44a5898", "id": "fdcb80c5-f122-456d-86ca-e4b42e47a124" },
+        { "from": "fec33482-665c-4149-b95a-0ad4d557b103", "to": "b1f5ec99-aad7-437c-a4da-48d40682ee99", "id": "896db293-ec17-41cc-95d3-5ad4b6fa9551" },
+        { "from": "29297ec8-e453-4a64-b62f-a5a5fd28ac4a", "to": "ead4af24-6f65-4726-8d8e-06a4d43752fe", "id": "607fcc60-dae5-4446-bb08-93c2c0abe2c6" },
+        { "from": "e6713907-9d81-4d6b-90c8-19c5a089c943", "to": "1c354f1d-6290-4be0-b809-7bf8ed2ffca9", "id": "e1cbbdd6-5282-4d2d-8ece-0ae32e6bce2a" },
+        { "from": "05e7c00a-4ad8-492d-9936-283b0786deee", "to": "d68c40eb-c463-4152-9c0b-f72c5c9c90d7", "id": "3c8754f9-0960-4896-9c15-e86dffb01a57" },
+        { "from": "1d6fb89f-b73e-457f-ae15-83a2c155d236", "to": "ff12d13b-7e0e-427c-90dc-a2466f6c2af5", "id": "de0991f6-45e8-4659-83ae-3ebef68a103c" },
+        { "from": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9", "to": "f3a10eac-4b2e-49e9-aa9d-9372633d2363", "id": "dd56b4f8-1b46-4119-bbf9-a323a4f06546" },
+        { "from": "ea86a5f6-0bcc-4d97-9510-85ee81d65fec", "to": "626f5f62-9a6b-438d-b447-c843c0322ff9", "id": "776e7f65-9e1e-4026-bfb8-93a11994424c" },
+        { "from": "2399c9fb-ff81-4b3c-9d87-f00c42d47211", "to": "4c4ea457-da0a-47f5-a536-155bb47b7188", "id": "5e6e9474-b3b6-4094-b90a-21e1292ab24e" },
+        { "from": "675e963b-311f-4275-bd87-d3e6b01e5628", "to": "8c11b61e-3d6e-442a-b4bd-a35d8ec85b72", "id": "2464f688-f958-48a4-9c45-5e1a39a8e498" },
+        { "from": "31d994d7-86b8-434c-ae2c-2eaf67cae5b9", "to": "f245a64a-fd6f-43b4-949b-4e9df02af47a", "id": "f27fdc87-0c6a-4e7e-bdb9-1865cea4dd88" },
+        { "from": "1d6fb89f-b73e-457f-ae15-83a2c155d236", "to": "2b476abc-4214-4957-af69-cca6ccf56656", "id": "af4e7486-58c0-46d2-91e7-f882f76b977e" },
+        { "from": "a43b0769-bc36-410b-a51c-d30da89b4d9c", "to": "74abb486-f6a8-4331-8b9c-10d547237f61", "id": "d3fc8ee3-996f-4a87-816f-b02e43e679b7" },
+        { "from": "f17cb02f-481c-4e1e-a8ba-fa3cc9357ede", "to": "4e50b0df-af03-4a74-9d8f-ab647e53b56d", "id": "846e9734-60b9-495b-ac89-00e2f4c4270f" },
+        { "from": "727c2205-f59e-457c-bbcf-d48923e85ec7", "to": "ccfbc3ad-3a98-4f39-ba0c-bb44e3669a50", "id": "e1e5283b-83be-46e1-b5ee-14189b1032a9" }
       ] },
     "plugin_version": { "major": 0, "minor": 0, "patch": 0 }
   } }

@@ -6,7 +6,7 @@ project(NosDxAppSampleAdv)
 include(FetchContent)
 
 
-set(NODOS_WORKSPACE_DIR "../../" CACHE PATH "Path to Nodos workspace")
+set(NODOS_WORKSPACE_DIR "../../../" CACHE PATH "Path to Nodos workspace")
 
 message(STATUS "Nodos workspace directory: ${NODOS_WORKSPACE_DIR}")
 
@@ -66,12 +66,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(DirectX-Headers)
 
-FetchContent_Declare(
-    argparse
-    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
-)
-FetchContent_MakeAvailable(argparse)
-
 list(APPEND CMAKE_MODULE_PATH ${NODOS_SDK_DIR}/cmake)
 
 if (NOT EXISTS ${NODOS_WORKSPACE_DIR}/Toolchain/CMake)
@@ -106,7 +100,6 @@ target_link_libraries(NosDxAppSampleAdv PRIVATE
     SDL2-static
     DirectX-Headers
     Shlwapi.lib
-    argparse
 )
 
 target_compile_definitions(NosDxAppSampleAdv PRIVATE NODOS_APP_SDK_DLL="${NODOS_SDK_DIR}/bin/nosAppSDK.dll")
