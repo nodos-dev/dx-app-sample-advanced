@@ -183,6 +183,10 @@ private:
 	nos::uuid OutColorPinId;
 	nos::uuid OutDepthPinId;
 	nos::uuid InColorPinId;
+	nos::uuid QuadP0PinId;
+	nos::uuid QuadP1PinId;
+	nos::uuid QuadP2PinId;
+	nos::uuid QuadP3PinId;
 	
 	ExportedTexture InColor;
 	ExportedTexture OutColor;
@@ -193,6 +197,10 @@ private:
 	static constexpr const char* OutDepthPinName = "OutDepth";
 	static constexpr const char* TrackPinName = "Track";
 	static constexpr const char* ResolutionPinName = "OutputResolution";
+	static constexpr const char* QuadP0PinName = "QuadP0";
+	static constexpr const char* QuadP1PinName = "QuadP1";
+	static constexpr const char* QuadP2PinName = "QuadP2";
+	static constexpr const char* QuadP3PinName = "QuadP3";
 
 	struct SyncState
 	{
@@ -207,6 +215,12 @@ private:
 	uint32_t OutputWidth = 1920;
 	uint32_t OutputHeight = 1080;
 	bool OutputResolutionChanged = false;
+
+	// Quad corner positions in world space
+	nos::fb::vec3 QuadP0{-1.5f, 1.0f, -2.0f};
+	nos::fb::vec3 QuadP1{-1.5f, -1.0f, -2.0f};
+	nos::fb::vec3 QuadP2{1.5f, -1.0f, -2.0f};
+	nos::fb::vec3 QuadP3{1.5f, 1.0f, -2.0f};
 
 	// DX12 resources
 	ComPtr<ID3D12Device> Device;
@@ -583,6 +597,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 {
 	NodeId = *appNode.id();
 	std::optional<nos::fb::UUID> trackPinId, resolutionPinId, outColorPinId, outDepthPinId, inColorPinId;
+	std::optional<nos::fb::UUID> quadP0PinId, quadP1PinId, quadP2PinId, quadP3PinId;
 	bool overrideResolution = false;
 	
 	if (appNode.pins())
@@ -617,6 +632,26 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 			else if (pin->name()->str() == InColorPinName)
 			{
 				inColorPinId = *pin->id();
+			}
+			else if (pin->name()->str() == QuadP0PinName)
+			{
+				quadP0PinId = *pin->id();
+				QuadP0 = *reinterpret_cast<const nos::fb::vec3*>(pin->data()->Data());
+			}
+			else if (pin->name()->str() == QuadP1PinName)
+			{
+				quadP1PinId = *pin->id();
+				QuadP1 = *reinterpret_cast<const nos::fb::vec3*>(pin->data()->Data());
+			}
+			else if (pin->name()->str() == QuadP2PinName)
+			{
+				quadP2PinId = *pin->id();
+				QuadP2 = *reinterpret_cast<const nos::fb::vec3*>(pin->data()->Data());
+			}
+			else if (pin->name()->str() == QuadP3PinName)
+			{
+				quadP3PinId = *pin->id();
+				QuadP3 = *reinterpret_cast<const nos::fb::vec3*>(pin->data()->Data());
 			}
 		}
 	}
@@ -686,6 +721,47 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &resBuf));
 	}
 
+	// Create quad corner pins
+	if (!quadP0PinId)
+	{
+		std::vector<uint8_t> vec3Buf(reinterpret_cast<const uint8_t*>(&QuadP0),
+			reinterpret_cast<const uint8_t*>(&QuadP0) + sizeof(nos::fb::vec3));
+		quadP0PinId = GenerateId();
+		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP0PinId, QuadP0PinName,
+			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+	}
+
+	if (!quadP1PinId)
+	{
+		std::vector<uint8_t> vec3Buf(reinterpret_cast<const uint8_t*>(&QuadP1),
+			reinterpret_cast<const uint8_t*>(&QuadP1) + sizeof(nos::fb::vec3));
+		quadP1PinId = GenerateId();
+		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP1PinId, QuadP1PinName,
+			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+	}
+
+	if (!quadP2PinId)
+	{
+		std::vector<uint8_t> vec3Buf(reinterpret_cast<const uint8_t*>(&QuadP2),
+			reinterpret_cast<const uint8_t*>(&QuadP2) + sizeof(nos::fb::vec3));
+		quadP2PinId = GenerateId();
+		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP2PinId, QuadP2PinName,
+			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+	}
+
+	if (!quadP3PinId)
+	{
+		std::vector<uint8_t> vec3Buf(reinterpret_cast<const uint8_t*>(&QuadP3),
+			reinterpret_cast<const uint8_t*>(&QuadP3) + sizeof(nos::fb::vec3));
+		quadP3PinId = GenerateId();
+		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP3PinId, QuadP3PinName,
+			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+	}
+
 	if (pins.size() > 0)
 	{
 		fbb.Finish(nos::CreatePartialNodeUpdateDirect(fbb, &NodeId, nos::ClearFlags::CLEAR_NODES, 0, &pins, 
@@ -700,6 +776,10 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 	OutColorPinId = *outColorPinId;
 	OutDepthPinId = *outDepthPinId;
 	InColorPinId = *inColorPinId;
+	QuadP0PinId = *quadP0PinId;
+	QuadP1PinId = *quadP1PinId;
+	QuadP2PinId = *quadP2PinId;
+	QuadP3PinId = *quadP3PinId;
 
 	if (!outColorNew)
 		AppInterface.Nodos->NotifyPinValueChanged(OutColorPinId, nos::Buffer::From(OutColor.TextureDef));
@@ -745,6 +825,22 @@ inline void SceneAppNode::OnPinValueChanges(std::unordered_map<nos::uuid, nos::B
 		else if (pinId == TrackPinId)
 		{
 			flatbuffers::GetRoot<nos::track::Track>(data.Data())->UnPackTo(&Track);
+		}
+		else if (pinId == QuadP0PinId)
+		{
+			QuadP0 = *reinterpret_cast<const nos::fb::vec3*>(data.Data());
+		}
+		else if (pinId == QuadP1PinId)
+		{
+			QuadP1 = *reinterpret_cast<const nos::fb::vec3*>(data.Data());
+		}
+		else if (pinId == QuadP2PinId)
+		{
+			QuadP2 = *reinterpret_cast<const nos::fb::vec3*>(data.Data());
+		}
+		else if (pinId == QuadP3PinId)
+		{
+			QuadP3 = *reinterpret_cast<const nos::fb::vec3*>(data.Data());
 		}
 	}
 }
@@ -823,6 +919,17 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 		
 		OutputResolutionChanged = false;
 	}
+
+	// Set input texture for the renderer
+	AppInterface.Renderer.SetInputTexture(InColor.Resource.Get());
+
+	// Set quad corners from Nodos pins (convert from cm to meters and apply track coordinate mapping)
+	// Track mapping: X→-Z, Y→-X, Z→Y
+	DirectX::XMFLOAT3 p0(-QuadP0.y() / 100.0f, QuadP0.z() / 100.0f, -QuadP0.x() / 100.0f);
+	DirectX::XMFLOAT3 p1(-QuadP1.y() / 100.0f, QuadP1.z() / 100.0f, -QuadP1.x() / 100.0f);
+	DirectX::XMFLOAT3 p2(-QuadP2.y() / 100.0f, QuadP2.z() / 100.0f, -QuadP2.x() / 100.0f);
+	DirectX::XMFLOAT3 p3(-QuadP3.y() / 100.0f, QuadP3.z() / 100.0f, -QuadP3.x() / 100.0f);
+	AppInterface.Renderer.SetTexturedQuadCorners(p0, p1, p2, p3);
 
 	InputCopies(inputWorkGroupResources.CommandList.Get(), frameCounter);
 	auto submitInfo = PrepareSubmitInfo(frameCounter, true);

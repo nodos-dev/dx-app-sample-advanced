@@ -116,6 +116,93 @@ float4 main(PSInput input) : SV_TARGET
 }
 )";
 
+// Textured quad shaders (Projection Material)
+const char* g_TexturedVertexShader = R"(
+cbuffer ConstantBuffer : register(b0)
+{
+	float4x4 WorldViewProj;
+	float4x4 World;
+	float3 LightDirection;
+	float Padding1;
+	float3 LightColor;
+	float LightIntensity;
+	float3 CameraPosition;
+	float Padding2;
+	float4 ObjectColor;
+};
+
+struct VSInput
+{
+	float3 Position : POSITION;
+	float3 Normal : NORMAL;
+	float4 Color : COLOR;
+	float2 TexCoord : TEXCOORD;
+};
+
+struct PSInput
+{
+	float4 Position : SV_POSITION;
+	float3 WorldPos : POSITION;
+	float3 Normal : NORMAL;
+	float4 Color : COLOR;
+	float2 TexCoord : TEXCOORD;
+	float4 ScreenPos : TEXCOORD1;
+};
+
+PSInput main(VSInput input)
+{
+	PSInput output;
+	output.Position = mul(float4(input.Position, 1.0), WorldViewProj);
+	output.WorldPos = mul(float4(input.Position, 1.0), World).xyz;
+	output.Normal = normalize(mul(float4(input.Normal, 0.0), World).xyz);
+	output.Color = input.Color * ObjectColor;
+	output.TexCoord = input.TexCoord;
+	// Pass screen position for projection material
+	output.ScreenPos = output.Position;
+	return output;
+}
+)";
+
+const char* g_TexturedPixelShader = R"(
+cbuffer ConstantBuffer : register(b0)
+{
+	float4x4 WorldViewProj;
+	float4x4 World;
+	float3 LightDirection;
+	float Padding1;
+	float3 LightColor;
+	float LightIntensity;
+	float3 CameraPosition;
+	float Padding2;
+	float4 ObjectColor;
+};
+
+Texture2D colorTexture : register(t0);
+SamplerState colorSampler : register(s0);
+
+struct PSInput
+{
+	float4 Position : SV_POSITION;
+	float3 WorldPos : POSITION;
+	float3 Normal : NORMAL;
+	float4 Color : COLOR;
+	float2 TexCoord : TEXCOORD;
+	float4 ScreenPos : TEXCOORD1;
+};
+
+float4 main(PSInput input) : SV_TARGET
+{
+	// Use screen-space coordinates for projection material effect
+	// Convert from clip space to 0-1 texture coordinates
+	float2 screenUV = input.ScreenPos.xy / input.ScreenPos.w;
+	screenUV = screenUV * 0.5 + 0.5;
+	screenUV.y = 1.0 - screenUV.y; // Flip Y for D3D texture coordinates
+	
+	float4 texColor = colorTexture.Sample(colorSampler, screenUV);
+	return texColor * input.Color;
+}
+)";
+
 // SceneRenderer implementation
 SceneRenderer::SceneRenderer()
 {
@@ -141,25 +228,57 @@ void SceneRenderer::Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, u
 
 	CreateRootSignature(device);
 	CreatePipelineState(device, outputFormat);
+	CreateTexturedPipelineState(device, outputFormat);
 	CreateGeometryBuffers(device);
 	CreateConstantBuffer(device);
 	CreateOutputTexture(device, width, height);
 	CreateDepthStencilBuffer(device, width, height);
+	CreateSRVHeap(device);
 }
 
 void SceneRenderer::CreateRootSignature(ID3D12Device* device)
 {
-	D3D12_ROOT_PARAMETER rootParameter{};
-	rootParameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	rootParameter.Descriptor.ShaderRegister = 0;
-	rootParameter.Descriptor.RegisterSpace = 0;
-	rootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	// Root parameter 0: CBV for constant buffer
+	D3D12_ROOT_PARAMETER rootParameters[2]{};
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[0].Descriptor.ShaderRegister = 0;
+	rootParameters[0].Descriptor.RegisterSpace = 0;
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	// Root parameter 1: Descriptor table for SRV (texture)
+	D3D12_DESCRIPTOR_RANGE descriptorRange{};
+	descriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descriptorRange.NumDescriptors = 1;
+	descriptorRange.BaseShaderRegister = 0;
+	descriptorRange.RegisterSpace = 0;
+	descriptorRange.OffsetInDescriptorsFromTableStart = 0;
+
+	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[1].DescriptorTable.NumDescriptorRanges = 1;
+	rootParameters[1].DescriptorTable.pDescriptorRanges = &descriptorRange;
+	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	// Static sampler
+	D3D12_STATIC_SAMPLER_DESC sampler{};
+	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	sampler.MipLODBias = 0;
+	sampler.MaxAnisotropy = 0;
+	sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	sampler.MinLOD = 0.0f;
+	sampler.MaxLOD = D3D12_FLOAT32_MAX;
+	sampler.ShaderRegister = 0;
+	sampler.RegisterSpace = 0;
+	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
-	rootSignatureDesc.NumParameters = 1;
-	rootSignatureDesc.pParameters = &rootParameter;
-	rootSignatureDesc.NumStaticSamplers = 0;
-	rootSignatureDesc.pStaticSamplers = nullptr;
+	rootSignatureDesc.NumParameters = 2;
+	rootSignatureDesc.pParameters = rootParameters;
+	rootSignatureDesc.NumStaticSamplers = 1;
+	rootSignatureDesc.pStaticSamplers = &sampler;
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
 	ComPtr<ID3DBlob> signature;
@@ -251,6 +370,79 @@ void SceneRenderer::CreatePipelineState(ID3D12Device* device, DXGI_FORMAT output
 		throw std::runtime_error("Failed to create pipeline state");
 }
 
+void SceneRenderer::CreateTexturedPipelineState(ID3D12Device* device, DXGI_FORMAT outputFormat)
+{
+	ComPtr<ID3DBlob> vertexShader;
+	ComPtr<ID3DBlob> pixelShader;
+	ComPtr<ID3DBlob> error;
+
+	UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+
+	HRESULT hr = D3DCompile(g_TexturedVertexShader, strlen(g_TexturedVertexShader), nullptr, nullptr, nullptr,
+		"main", "vs_5_0", compileFlags, 0, &vertexShader, &error);
+	if (FAILED(hr))
+	{
+		if (error)
+		{
+			OutputDebugStringA((char*)error->GetBufferPointer());
+		}
+		throw std::runtime_error("Failed to compile textured vertex shader");
+	}
+
+	hr = D3DCompile(g_TexturedPixelShader, strlen(g_TexturedPixelShader), nullptr, nullptr, nullptr,
+		"main", "ps_5_0", compileFlags, 0, &pixelShader, &error);
+	if (FAILED(hr))
+	{
+		if (error)
+		{
+			OutputDebugStringA((char*)error->GetBufferPointer());
+		}
+		throw std::runtime_error("Failed to compile textured pixel shader");
+	}
+
+	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+	psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
+	psoDesc.pRootSignature = m_RootSignature.Get();
+	psoDesc.VS = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
+	psoDesc.PS = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
+	
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; // No culling for quads
+	
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
+	psoDesc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	psoDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	psoDesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+	psoDesc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+	psoDesc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState.DepthEnable = TRUE;
+	psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = outputFormat;
+	psoDesc.SampleDesc.Count = 1;
+
+	hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_TexturedPipelineState));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create textured pipeline state");
+}
+
 void SceneRenderer::CreateGeometryBuffers(ID3D12Device* device)
 {
 	using namespace DirectX;
@@ -258,35 +450,35 @@ void SceneRenderer::CreateGeometryBuffers(ID3D12Device* device)
 	// Cube vertices (with normals)
 	Vertex cubeVertices[] = {
 		// Front face
-		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
 		// Back face
-		{ XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
 		// Top face
-		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
 		// Bottom face
-		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
 		// Right face
-		{ XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3( 0.5f, -0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f,  0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f,  0.5f,  0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f, -0.5f,  0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
 		// Left face
-		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) }
+		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) }
 	};
 
 	UINT16 cubeIndices[] = {
@@ -350,10 +542,10 @@ void SceneRenderer::CreateGeometryBuffers(ID3D12Device* device)
 
 	// Plane vertices (Y-up plane)
 	Vertex planeVertices[] = {
-		{ XMFLOAT3(-0.5f, 0.0f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f, 0.0f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f, 0.0f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3( 0.5f, 0.0f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) }
+		{ XMFLOAT3(-0.5f, 0.0f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f, 0.0f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f, 0.0f,  0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f, 0.0f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) }
 	};
 
 	UINT16 planeIndices[] = {
@@ -408,6 +600,68 @@ void SceneRenderer::CreateGeometryBuffers(ID3D12Device* device)
 		m_PlaneIndexBufferView.BufferLocation = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 		m_PlaneIndexBufferView.Format = DXGI_FORMAT_R16_UINT;
 		m_PlaneIndexBufferView.SizeInBytes = indexBufferSize;
+	}
+
+	// Quad vertices (Z-up billboard with texture coordinates)
+	Vertex quadVertices[] = {
+		{ XMFLOAT3(-0.5f, -0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f,  0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
+		{ XMFLOAT3( 0.5f, -0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) }
+	};
+
+	UINT16 quadIndices[] = {
+		0, 1, 2, 0, 2, 3
+	};
+
+	m_QuadIndexCount = _countof(quadIndices);
+
+	// Create quad vertex buffer
+	{
+		UINT vertexBufferSize = sizeof(quadVertices);
+		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
+		
+		device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&resourceDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_QuadVertexBuffer));
+
+		void* pData;
+		m_QuadVertexBuffer->Map(0, nullptr, &pData);
+		memcpy(pData, quadVertices, vertexBufferSize);
+		m_QuadVertexBuffer->Unmap(0, nullptr);
+
+		m_QuadVertexBufferView.BufferLocation = m_QuadVertexBuffer->GetGPUVirtualAddress();
+		m_QuadVertexBufferView.StrideInBytes = sizeof(Vertex);
+		m_QuadVertexBufferView.SizeInBytes = vertexBufferSize;
+	}
+
+	// Create quad index buffer
+	{
+		UINT indexBufferSize = sizeof(quadIndices);
+		auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
+		
+		device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&resourceDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_QuadIndexBuffer));
+
+		void* pData;
+		m_QuadIndexBuffer->Map(0, nullptr, &pData);
+		memcpy(pData, quadIndices, indexBufferSize);
+		m_QuadIndexBuffer->Unmap(0, nullptr);
+
+		m_QuadIndexBufferView.BufferLocation = m_QuadIndexBuffer->GetGPUVirtualAddress();
+		m_QuadIndexBufferView.Format = DXGI_FORMAT_R16_UINT;
+		m_QuadIndexBufferView.SizeInBytes = indexBufferSize;
 	}
 }
 
@@ -528,6 +782,19 @@ void SceneRenderer::CreateDepthStencilBuffer(ID3D12Device* device, uint32_t widt
 	device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), &dsvDesc, m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
+void SceneRenderer::CreateSRVHeap(ID3D12Device* device)
+{
+	// Create descriptor heap for SRV (shader resource views)
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.NumDescriptors = 1; // One for input texture
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	
+	HRESULT hr = device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_SRVHeap));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create SRV descriptor heap");
+}
+
 void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 {
 	using namespace DirectX;
@@ -553,10 +820,11 @@ void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 	// Set render target and depth stencil
 	cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
-	// Set pipeline state
-	cmdList->SetPipelineState(m_PipelineState.Get());
 	cmdList->SetGraphicsRootSignature(m_RootSignature.Get());
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Update quad vertices if corners changed
+	UpdateQuadVertexBuffer();
 
 	// Get view and projection matrices
 	XMMATRIX view = m_Camera.GetViewMatrix();
@@ -568,8 +836,34 @@ void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 	{
 		const SceneObject& obj = m_Objects[i];
 		
+		// Set pipeline state based on object type
+		if (obj.ObjectType == SceneObject::Type::TexturedQuad)
+		{
+			cmdList->SetPipelineState(m_TexturedPipelineState.Get());
+			// Set SRV heap for textured rendering
+			if (m_SRVHeap && m_InputTexture)
+			{
+				ID3D12DescriptorHeap* heaps[] = { m_SRVHeap.Get() };
+				cmdList->SetDescriptorHeaps(1, heaps);
+			}
+		}
+		else
+		{
+			cmdList->SetPipelineState(m_PipelineState.Get());
+		}
+		
 		// Update constant buffer for this object
-		XMMATRIX world = obj.GetWorldMatrix();
+		XMMATRIX world;
+		if (obj.ObjectType == SceneObject::Type::TexturedQuad)
+		{
+			// For textured quads, vertices are in world space (no transform needed)
+			world = XMMatrixIdentity();
+		}
+		else
+		{
+			world = obj.GetWorldMatrix();
+		}
+		
 		XMMATRIX worldViewProj = world * viewProj;
 
 		ConstantBufferData cbData{};
@@ -592,6 +886,12 @@ void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 		D3D12_GPU_VIRTUAL_ADDRESS cbvAddress = m_ConstantBuffer->GetGPUVirtualAddress() + i * m_ConstantBufferSize;
 		cmdList->SetGraphicsRootConstantBufferView(0, cbvAddress);
 
+		// Set texture for textured quads
+		if (obj.ObjectType == SceneObject::Type::TexturedQuad && m_SRVHeap && m_InputTexture)
+		{
+			cmdList->SetGraphicsRootDescriptorTable(1, m_SRVHeap->GetGPUDescriptorHandleForHeapStart());
+		}
+
 		// Set vertex and index buffers based on object type
 		if (obj.ObjectType == SceneObject::Type::Cube)
 		{
@@ -604,6 +904,12 @@ void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 			cmdList->IASetVertexBuffers(0, 1, &m_PlaneVertexBufferView);
 			cmdList->IASetIndexBuffer(&m_PlaneIndexBufferView);
 			cmdList->DrawIndexedInstanced(m_PlaneIndexCount, 1, 0, 0, 0);
+		}
+		else if (obj.ObjectType == SceneObject::Type::TexturedQuad)
+		{
+			cmdList->IASetVertexBuffers(0, 1, &m_QuadVertexBufferView);
+			cmdList->IASetIndexBuffer(&m_QuadIndexBufferView);
+			cmdList->DrawIndexedInstanced(m_QuadIndexCount, 1, 0, 0, 0);
 		}
 	}
 }
@@ -674,6 +980,67 @@ size_t SceneRenderer::AddPlane(const DirectX::XMFLOAT3& position, const DirectX:
 	
 	m_Objects.push_back(obj);
 	return m_Objects.size() - 1;
+}
+
+size_t SceneRenderer::AddTexturedQuad(const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& scale, const DirectX::XMFLOAT4& color)
+{
+	SceneObject obj;
+	obj.ObjectType = SceneObject::Type::TexturedQuad;
+	obj.Position = position;
+	obj.Scale = scale;
+	obj.Color = color;
+	
+	m_Objects.push_back(obj);
+	return m_Objects.size() - 1;
+}
+
+void SceneRenderer::SetInputTexture(ID3D12Resource* texture)
+{
+	m_InputTexture = texture;
+	
+	// Create SRV for the input texture if we have one
+	if (texture && m_SRVHeap)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+		
+		m_Device->CreateShaderResourceView(texture, &srvDesc, m_SRVHeap->GetCPUDescriptorHandleForHeapStart());
+	}
+}
+
+void SceneRenderer::SetTexturedQuadCorners(const DirectX::XMFLOAT3& p0, const DirectX::XMFLOAT3& p1, const DirectX::XMFLOAT3& p2, const DirectX::XMFLOAT3& p3)
+{
+	m_QuadP0 = p0;
+	m_QuadP1 = p1;
+	m_QuadP2 = p2;
+	m_QuadP3 = p3;
+	m_QuadCornersChanged = true;
+}
+
+void SceneRenderer::UpdateQuadVertexBuffer()
+{
+	if (!m_QuadCornersChanged || !m_QuadVertexBuffer)
+		return;
+
+	using namespace DirectX;
+	
+	// Update quad vertices with new positions
+	Vertex quadVertices[] = {
+		{ m_QuadP0, XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ m_QuadP1, XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ m_QuadP2, XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
+		{ m_QuadP3, XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) }
+	};
+
+	void* pData;
+	m_QuadVertexBuffer->Map(0, nullptr, &pData);
+	memcpy(pData, quadVertices, sizeof(quadVertices));
+	m_QuadVertexBuffer->Unmap(0, nullptr);
+	
+	m_QuadCornersChanged = false;
 }
 
 SceneObject& SceneRenderer::GetObject(size_t index)

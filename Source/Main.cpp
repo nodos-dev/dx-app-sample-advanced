@@ -129,15 +129,28 @@ struct SimpleApp
 		if (adapters.size() > 1)
 		{
 			if (gpuIndex)
+			{
 				selectedAdapter = *gpuIndex;
+			}
 			else
 			{
-				std::cout << "Select GPU: ";
-				std::cin >> selectedAdapter;
+				// Automatically select the first discrete GPU (highest dedicated video memory)
+				size_t maxDedicatedMemory = 0;
+				for (uint32_t i = 0; i < adapters.size(); ++i)
+				{
+					DXGI_ADAPTER_DESC1 desc;
+					adapters[i]->GetDesc1(&desc);
+					if (desc.DedicatedVideoMemory > maxDedicatedMemory)
+					{
+						maxDedicatedMemory = desc.DedicatedVideoMemory;
+						selectedAdapter = i;
+					}
+				}
+				std::wcout << L"Auto-selected discrete GPU: " << selectedAdapter << std::endl;
 			}
 		}
 
-		std::wcout << "Selected GPU: " << selectedAdapter << std::endl;
+		std::wcout << L"Selected GPU: " << selectedAdapter << std::endl;
 
 		Must(!(selectedAdapter < 0 || selectedAdapter >= static_cast<uint32_t>(adapters.size())), "Invalid adapter selection.");
 
@@ -282,6 +295,13 @@ struct SimpleApp
 			{0.0f, 0.5f, 2.0f},
 			{1.0f, 1.0f, 1.0f},
 			{0.3f, 0.3f, 1.0f, 1.0f}  // Blue
+		);
+
+		// Add a textured quad (billboard) - will display input texture from Nodos
+		SceneRenderer->AddTexturedQuad(
+			{0.0f, 2.5f, -2.0f},  // Position above the ground, behind center
+			{3.0f, 2.0f, 1.0f},   // Scale (3x2 aspect ratio)
+			{1.0f, 1.0f, 1.0f, 0.9f}  // White with slight transparency
 		);
 
 		// Initialize Nodos interface

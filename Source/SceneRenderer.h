@@ -37,7 +37,8 @@ struct SceneObject
 	enum class Type
 	{
 		Cube,
-		Plane
+		Plane,
+		TexturedQuad
 	};
 
 	Type ObjectType = Type::Cube;
@@ -54,6 +55,7 @@ struct Vertex
 	DirectX::XMFLOAT3 Position;
 	DirectX::XMFLOAT3 Normal;
 	DirectX::XMFLOAT4 Color;
+	DirectX::XMFLOAT2 TexCoord;
 };
 
 struct ConstantBufferData
@@ -92,8 +94,13 @@ public:
 	// Object management
 	size_t AddCube(const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& scale = {1.0f, 1.0f, 1.0f}, const DirectX::XMFLOAT4& color = {1.0f, 1.0f, 1.0f, 1.0f});
 	size_t AddPlane(const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& scale = {1.0f, 1.0f, 1.0f}, const DirectX::XMFLOAT4& color = {0.8f, 0.8f, 0.8f, 1.0f});
+	size_t AddTexturedQuad(const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& scale = {1.0f, 1.0f, 1.0f}, const DirectX::XMFLOAT4& color = {1.0f, 1.0f, 1.0f, 1.0f});
 	SceneObject& GetObject(size_t index);
 	void ClearObjects();
+
+	// Texture input from Nodos
+	void SetInputTexture(ID3D12Resource* texture);
+	void SetTexturedQuadCorners(const DirectX::XMFLOAT3& p0, const DirectX::XMFLOAT3& p1, const DirectX::XMFLOAT3& p2, const DirectX::XMFLOAT3& p3);
 
 	// Output texture access
 	ID3D12Resource* GetOutputTexture() const { return m_OutputTexture.Get(); }
@@ -102,30 +109,39 @@ public:
 private:
 	void CreateRootSignature(ID3D12Device* device);
 	void CreatePipelineState(ID3D12Device* device, DXGI_FORMAT outputFormat);
+	void CreateTexturedPipelineState(ID3D12Device* device, DXGI_FORMAT outputFormat);
 	void CreateGeometryBuffers(ID3D12Device* device);
 	void CreateConstantBuffer(ID3D12Device* device);
 	void CreateOutputTexture(ID3D12Device* device, uint32_t width, uint32_t height);
 	void CreateDepthStencilBuffer(ID3D12Device* device, uint32_t width, uint32_t height);
+	void CreateSRVHeap(ID3D12Device* device);
+	void UpdateQuadVertexBuffer();
 
 	void UpdateConstantBuffer(size_t objectIndex);
 
 	ComPtr<ID3D12Device> m_Device;
 	ComPtr<ID3D12RootSignature> m_RootSignature;
 	ComPtr<ID3D12PipelineState> m_PipelineState;
+	ComPtr<ID3D12PipelineState> m_TexturedPipelineState;
 
 	// Geometry buffers
 	ComPtr<ID3D12Resource> m_CubeVertexBuffer;
 	ComPtr<ID3D12Resource> m_CubeIndexBuffer;
 	ComPtr<ID3D12Resource> m_PlaneVertexBuffer;
 	ComPtr<ID3D12Resource> m_PlaneIndexBuffer;
+	ComPtr<ID3D12Resource> m_QuadVertexBuffer;
+	ComPtr<ID3D12Resource> m_QuadIndexBuffer;
 
 	D3D12_VERTEX_BUFFER_VIEW m_CubeVertexBufferView{};
 	D3D12_INDEX_BUFFER_VIEW m_CubeIndexBufferView{};
 	D3D12_VERTEX_BUFFER_VIEW m_PlaneVertexBufferView{};
 	D3D12_INDEX_BUFFER_VIEW m_PlaneIndexBufferView{};
+	D3D12_VERTEX_BUFFER_VIEW m_QuadVertexBufferView{};
+	D3D12_INDEX_BUFFER_VIEW m_QuadIndexBufferView{};
 
 	uint32_t m_CubeIndexCount = 0;
 	uint32_t m_PlaneIndexCount = 0;
+	uint32_t m_QuadIndexCount = 0;
 
 	// Constant buffers (one per object for simplicity)
 	static constexpr size_t MAX_OBJECTS = 256;
@@ -137,6 +153,17 @@ private:
 	ComPtr<ID3D12Resource> m_DepthStencilBuffer;
 	ComPtr<ID3D12DescriptorHeap> m_RTVHeap;
 	ComPtr<ID3D12DescriptorHeap> m_DSVHeap;
+	ComPtr<ID3D12DescriptorHeap> m_SRVHeap;
+
+	// Input texture from Nodos
+	ID3D12Resource* m_InputTexture = nullptr;
+
+	// Textured quad corners (for projection rendering)
+	DirectX::XMFLOAT3 m_QuadP0 = {-1.5f, 1.0f, -2.0f};
+	DirectX::XMFLOAT3 m_QuadP1 = {-1.5f, -1.0f, -2.0f};
+	DirectX::XMFLOAT3 m_QuadP2 = {1.5f, -1.0f, -2.0f};
+	DirectX::XMFLOAT3 m_QuadP3 = {1.5f, 1.0f, -2.0f};
+	bool m_QuadCornersChanged = false;
 
 	Camera m_Camera;
 	DirectionalLight m_Light;
