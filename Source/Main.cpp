@@ -443,8 +443,41 @@ struct SimpleApp
 		}
 		else
 		{
-			// Dimensions don't match (e.g., renderer at 1920x1080 for Nodos, swapchain at 1280x720)
-			// Keep swapchain in PRESENT state - it will show previous frame or black
+			// Dimensions don't match - use shader blit to resize
+			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SceneRenderer->GetOutputTexture(),
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+			);
+			CmdList->ResourceBarrier(1, &barrier);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SwapChainRTResources[SwapChainFrameIndex].Get(),
+				D3D12_RESOURCE_STATE_PRESENT,
+				D3D12_RESOURCE_STATE_RENDER_TARGET
+			);
+			CmdList->ResourceBarrier(1, &barrier);
+
+			// Get RTV handle for swapchain backbuffer
+			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(RTVHeap->GetCPUDescriptorHandleForHeapStart(), SwapChainFrameIndex, RTVDescriptorSize);
+
+			// Blit with resize
+			SceneRenderer->BlitToRenderTarget(CmdList.Get(), rtvHandle, Window.Width, Window.Height);
+
+			// Transition resources back
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SceneRenderer->GetOutputTexture(),
+				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_RENDER_TARGET
+			);
+			CmdList->ResourceBarrier(1, &barrier);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				SwapChainRTResources[SwapChainFrameIndex].Get(),
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_PRESENT
+			);
+			CmdList->ResourceBarrier(1, &barrier);
 		}
 
 		// Execute command list

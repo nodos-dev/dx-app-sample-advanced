@@ -203,6 +203,40 @@ float4 main(PSInput input) : SV_TARGET
 }
 )";
 
+// Fullscreen blit shaders (for resizing renderer output to swapchain)
+const char* g_BlitVertexShader = R"(
+struct VSOutput
+{
+	float4 Position : SV_POSITION;
+	float2 TexCoord : TEXCOORD;
+};
+
+VSOutput main(uint vertexID : SV_VertexID)
+{
+	VSOutput output;
+	// Fullscreen triangle
+	output.TexCoord = float2((vertexID << 1) & 2, vertexID & 2);
+	output.Position = float4(output.TexCoord * float2(2, -2) + float2(-1, 1), 0, 1);
+	return output;
+}
+)";
+
+const char* g_BlitPixelShader = R"(
+Texture2D sourceTexture : register(t0);
+SamplerState sourceSampler : register(s0);
+
+struct PSInput
+{
+	float4 Position : SV_POSITION;
+	float2 TexCoord : TEXCOORD;
+};
+
+float4 main(PSInput input) : SV_TARGET
+{
+	return sourceTexture.Sample(sourceSampler, input.TexCoord);
+}
+)";
+
 // SceneRenderer implementation
 SceneRenderer::SceneRenderer()
 {
@@ -229,6 +263,7 @@ void SceneRenderer::Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, u
 	CreateRootSignature(device);
 	CreatePipelineState(device, outputFormat);
 	CreateTexturedPipelineState(device, outputFormat);
+	CreateBlitPipeline(device, outputFormat);
 	CreateGeometryBuffers(device);
 	CreateConstantBuffer(device);
 	CreateOutputTexture(device, width, height);
@@ -441,6 +476,108 @@ void SceneRenderer::CreateTexturedPipelineState(ID3D12Device* device, DXGI_FORMA
 	hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_TexturedPipelineState));
 	if (FAILED(hr))
 		throw std::runtime_error("Failed to create textured pipeline state");
+}
+
+void SceneRenderer::CreateBlitPipeline(ID3D12Device* device, DXGI_FORMAT outputFormat)
+{
+	// Create blit root signature
+	CD3DX12_DESCRIPTOR_RANGE srvRange;
+	srvRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+
+	CD3DX12_ROOT_PARAMETER rootParam;
+	rootParam.InitAsDescriptorTable(1, &srvRange, D3D12_SHADER_VISIBILITY_PIXEL);
+
+	D3D12_STATIC_SAMPLER_DESC sampler{};
+	sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	sampler.MipLODBias = 0;
+	sampler.MaxAnisotropy = 0;
+	sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	sampler.MinLOD = 0.0f;
+	sampler.MaxLOD = D3D12_FLOAT32_MAX;
+	sampler.ShaderRegister = 0;
+	sampler.RegisterSpace = 0;
+	sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc;
+	rootSigDesc.Init(1, &rootParam, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	ComPtr<ID3DBlob> signature;
+	ComPtr<ID3DBlob> error;
+	HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+	if (FAILED(hr))
+	{
+		if (error)
+			OutputDebugStringA((char*)error->GetBufferPointer());
+		throw std::runtime_error("Failed to serialize blit root signature");
+	}
+
+	hr = device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_BlitRootSignature));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create blit root signature");
+
+	// Compile shaders
+	ComPtr<ID3DBlob> vertexShader;
+	ComPtr<ID3DBlob> pixelShader;
+	UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+
+	hr = D3DCompile(g_BlitVertexShader, strlen(g_BlitVertexShader), nullptr, nullptr, nullptr,
+		"main", "vs_5_0", compileFlags, 0, &vertexShader, &error);
+	if (FAILED(hr))
+	{
+		if (error)
+			OutputDebugStringA((char*)error->GetBufferPointer());
+		throw std::runtime_error("Failed to compile blit vertex shader");
+	}
+
+	hr = D3DCompile(g_BlitPixelShader, strlen(g_BlitPixelShader), nullptr, nullptr, nullptr,
+		"main", "ps_5_0", compileFlags, 0, &pixelShader, &error);
+	if (FAILED(hr))
+	{
+		if (error)
+			OutputDebugStringA((char*)error->GetBufferPointer());
+		throw std::runtime_error("Failed to compile blit pixel shader");
+	}
+
+	// Create PSO (no input layout - using SV_VertexID)
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+	psoDesc.InputLayout = { nullptr, 0 }; // Fullscreen triangle generates positions in shader
+	psoDesc.pRootSignature = m_BlitRootSignature.Get();
+	psoDesc.VS = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
+	psoDesc.PS = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState.DepthEnable = FALSE;
+	psoDesc.DepthStencilState.StencilEnable = FALSE;
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = outputFormat;
+	psoDesc.SampleDesc.Count = 1;
+
+	hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_BlitPipelineState));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create blit pipeline state");
+
+	// Create SRV heap for blit operation
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc{};
+	srvHeapDesc.NumDescriptors = 1;
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	hr = device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_BlitSRVHeap));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create blit SRV heap");
+
+	// Create SRV for output texture
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = m_OutputFormat;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	device->CreateShaderResourceView(m_OutputTexture.Get(), &srvDesc, m_BlitSRVHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 void SceneRenderer::CreateGeometryBuffers(ID3D12Device* device)
@@ -927,6 +1064,17 @@ void SceneRenderer::Resize(uint32_t width, uint32_t height)
 	{
 		m_OutputTexture.Reset();
 		CreateOutputTexture(m_Device.Get(), width, height);
+		
+		// Recreate blit SRV with new output texture
+		if (m_BlitSRVHeap)
+		{
+			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			srvDesc.Format = m_OutputFormat;
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.Texture2D.MipLevels = 1;
+			m_Device->CreateShaderResourceView(m_OutputTexture.Get(), &srvDesc, m_BlitSRVHeap->GetCPUDescriptorHandleForHeapStart());
+		}
 	}
 	
 	if (m_DepthStencilBuffer)
@@ -935,6 +1083,41 @@ void SceneRenderer::Resize(uint32_t width, uint32_t height)
 		m_DSVHeap.Reset();
 		CreateDepthStencilBuffer(m_Device.Get(), width, height);
 	}
+}
+
+void SceneRenderer::BlitToRenderTarget(ID3D12GraphicsCommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, uint32_t targetWidth, uint32_t targetHeight)
+{
+	// Set viewport and scissor for target
+	D3D12_VIEWPORT viewport{};
+	viewport.Width = static_cast<float>(targetWidth);
+	viewport.Height = static_cast<float>(targetHeight);
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
+
+	D3D12_RECT scissorRect{};
+	scissorRect.left = 0;
+	scissorRect.top = 0;
+	scissorRect.right = static_cast<LONG>(targetWidth);
+	scissorRect.bottom = static_cast<LONG>(targetHeight);
+
+	cmdList->RSSetViewports(1, &viewport);
+	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	// Set render target
+	cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+
+	// Set blit pipeline
+	cmdList->SetGraphicsRootSignature(m_BlitRootSignature.Get());
+	cmdList->SetPipelineState(m_BlitPipelineState.Get());
+	ID3D12DescriptorHeap* heaps[] = { m_BlitSRVHeap.Get() };
+	cmdList->SetDescriptorHeaps(1, heaps);
+	cmdList->SetGraphicsRootDescriptorTable(0, m_BlitSRVHeap->GetGPUDescriptorHandleForHeapStart());
+
+	// Draw fullscreen triangle
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmdList->DrawInstanced(3, 1, 0, 0);
 }
 
 void SceneRenderer::SetCameraPosition(const DirectX::XMFLOAT3& position)

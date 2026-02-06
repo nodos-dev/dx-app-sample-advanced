@@ -106,10 +106,14 @@ public:
 	ID3D12Resource* GetOutputTexture() const { return m_OutputTexture.Get(); }
 	ID3D12Resource* GetDepthStencilBuffer() const { return m_DepthStencilBuffer.Get(); }
 
+	// Blit renderer output to a target render target (with resize if needed)
+	void BlitToRenderTarget(ID3D12GraphicsCommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, uint32_t targetWidth, uint32_t targetHeight);
+
 private:
 	void CreateRootSignature(ID3D12Device* device);
 	void CreatePipelineState(ID3D12Device* device, DXGI_FORMAT outputFormat);
 	void CreateTexturedPipelineState(ID3D12Device* device, DXGI_FORMAT outputFormat);
+	void CreateBlitPipeline(ID3D12Device* device, DXGI_FORMAT outputFormat);
 	void CreateGeometryBuffers(ID3D12Device* device);
 	void CreateConstantBuffer(ID3D12Device* device);
 	void CreateOutputTexture(ID3D12Device* device, uint32_t width, uint32_t height);
@@ -123,6 +127,11 @@ private:
 	ComPtr<ID3D12RootSignature> m_RootSignature;
 	ComPtr<ID3D12PipelineState> m_PipelineState;
 	ComPtr<ID3D12PipelineState> m_TexturedPipelineState;
+
+	// Blit pipeline (for resizing renderer output to swapchain)
+	ComPtr<ID3D12RootSignature> m_BlitRootSignature;
+	ComPtr<ID3D12PipelineState> m_BlitPipelineState;
+	ComPtr<ID3D12DescriptorHeap> m_BlitSRVHeap;
 
 	// Geometry buffers
 	ComPtr<ID3D12Resource> m_CubeVertexBuffer;
