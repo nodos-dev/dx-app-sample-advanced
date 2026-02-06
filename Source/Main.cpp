@@ -301,7 +301,7 @@ struct SimpleApp
 		SceneRenderer->AddTexturedQuad(
 			{0.0f, 2.5f, -2.0f},  // Position above the ground, behind center
 			{3.0f, 2.0f, 1.0f},   // Scale (3x2 aspect ratio)
-			{1.0f, 1.0f, 1.0f, 0.9f}  // White with slight transparency
+			{1.0f, 1.0f, 1.0f, 1.0f}  // White with slight transparency
 		);
 
 		// Initialize Nodos interface

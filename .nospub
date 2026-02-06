@@ -1,9 +1,0 @@
-{
-    "release_globs": [
-        "Source/**",
-        "Binaries/*.exe",
-        "CMakeLists.txt",
-        "README.md",
-        "*.nospackage"
-    ]
-}

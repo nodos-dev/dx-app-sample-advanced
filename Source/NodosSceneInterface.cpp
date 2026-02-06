@@ -182,6 +182,7 @@ private:
 	nos::uuid ResolutionPinId;
 	nos::uuid OutColorPinId;
 	nos::uuid OutDepthPinId;
+	nos::uuid OutVideoMaskPinId;
 	nos::uuid InColorPinId;
 	nos::uuid QuadP0PinId;
 	nos::uuid QuadP1PinId;
@@ -191,10 +192,12 @@ private:
 	ExportedTexture InColor;
 	ExportedTexture OutColor;
 	ExportedTexture OutDepth;
+	ExportedTexture OutVideoMask;
 	
 	static constexpr const char* InColorPinName = "InColor";
 	static constexpr const char* OutColorPinName = "OutColor";
 	static constexpr const char* OutDepthPinName = "OutDepth";
+	static constexpr const char* OutVideoMaskPinName = "OutVideoMask";
 	static constexpr const char* TrackPinName = "Track";
 	static constexpr const char* ResolutionPinName = "OutputResolution";
 	static constexpr const char* QuadP0PinName = "QuadP0";
@@ -596,7 +599,7 @@ inline SceneAppNode::SceneAppNode(NodosSceneInterface::InternalState& appInterfa
 inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 {
 	NodeId = *appNode.id();
-	std::optional<nos::fb::UUID> trackPinId, resolutionPinId, outColorPinId, outDepthPinId, inColorPinId;
+	std::optional<nos::fb::UUID> trackPinId, resolutionPinId, outColorPinId, outDepthPinId, outVideoMaskPinId, inColorPinId;
 	std::optional<nos::fb::UUID> quadP0PinId, quadP1PinId, quadP2PinId, quadP3PinId;
 	bool overrideResolution = false;
 	
@@ -628,6 +631,10 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 			else if (pin->name()->str() == OutDepthPinName)
 			{
 				outDepthPinId = *pin->id();
+			}
+			else if (pin->name()->str() == OutVideoMaskPinName)
+			{
+				outVideoMaskPinId = *pin->id();
 			}
 			else if (pin->name()->str() == InColorPinName)
 			{
@@ -661,6 +668,8 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, false);
 	OutDepth = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_D32_FLOAT,
 		D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, true);
+	OutVideoMask = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_R8G8B8A8_UNORM,
+		D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, false);
 	InColor = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_R8G8B8A8_UNORM,
 		D3D12_RESOURCE_FLAG_NONE, false);
 
@@ -668,10 +677,12 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 	std::vector<flatbuffers::Offset<nos::fb::Pin>> pins;
 	bool outColorNew = false;
 	bool outDepthNew = false;
+	bool outVideoMaskNew = false;
 	bool inColorNew = false;
 
 	std::vector<uint8_t> colorTexBuf = nos::Buffer::From(OutColor.TextureDef);
 	std::vector<uint8_t> depthTexBuf = nos::Buffer::From(OutDepth.TextureDef);
+	std::vector<uint8_t> videoMaskTexBuf = nos::Buffer::From(OutVideoMask.TextureDef);
 	std::vector<uint8_t> inColorTexBuf = nos::Buffer::From(InColor.TextureDef);
 
 	if (!outColorPinId)
@@ -690,6 +701,15 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*outDepthPinId, OutDepthPinName,
 			nos::sys::vulkan::Texture::GetFullyQualifiedName(), nos::fb::ShowAs::OUTPUT_PIN,
 			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, 0, &depthTexBuf));
+	}
+	
+	if (!outVideoMaskPinId)
+	{
+		outVideoMaskPinId = GenerateId();
+		outVideoMaskNew = true;
+		pins.push_back(nos::fb::CreatePinDirect(fbb, &*outVideoMaskPinId, OutVideoMaskPinName,
+			nos::sys::vulkan::Texture::GetFullyQualifiedName(), nos::fb::ShowAs::OUTPUT_PIN,
+			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, 0, &videoMaskTexBuf));
 	}
 	
 	if (!inColorPinId)
@@ -775,6 +795,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 	ResolutionPinId = *resolutionPinId;
 	OutColorPinId = *outColorPinId;
 	OutDepthPinId = *outDepthPinId;
+	OutVideoMaskPinId = *outVideoMaskPinId;
 	InColorPinId = *inColorPinId;
 	QuadP0PinId = *quadP0PinId;
 	QuadP1PinId = *quadP1PinId;
@@ -785,6 +806,8 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		AppInterface.Nodos->NotifyPinValueChanged(OutColorPinId, nos::Buffer::From(OutColor.TextureDef));
 	if (!outDepthNew)
 		AppInterface.Nodos->NotifyPinValueChanged(OutDepthPinId, nos::Buffer::From(OutDepth.TextureDef));
+	if (!outVideoMaskNew)
+		AppInterface.Nodos->NotifyPinValueChanged(OutVideoMaskPinId, nos::Buffer::From(OutVideoMask.TextureDef));
 	if (!inColorNew)
 		AppInterface.Nodos->NotifyPinValueChanged(InColorPinId, nos::Buffer::From(InColor.TextureDef));
 	if (overrideResolution)
@@ -803,6 +826,7 @@ inline void SceneAppNode::OnRemoved()
 	DestroyFrameResources();
 	DestroyExportedTexture(OutColor);
 	DestroyExportedTexture(OutDepth);
+	DestroyExportedTexture(OutVideoMask);
 	DestroyExportedTexture(InColor);
 }
 
@@ -907,6 +931,14 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 			OutDepth = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_D32_FLOAT,
 				D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, true);
 			AppInterface.Nodos->NotifyPinValueChanged(OutDepthPinId, nos::Buffer::From(OutDepth.TextureDef));
+		}
+		
+		if (OutVideoMask.TextureDef.width != OutputWidth || OutVideoMask.TextureDef.height != OutputHeight)
+		{
+			DestroyExportedTexture(OutVideoMask);
+			OutVideoMask = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_R8G8B8A8_UNORM,
+				D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, false);
+			AppInterface.Nodos->NotifyPinValueChanged(OutVideoMaskPinId, nos::Buffer::From(OutVideoMask.TextureDef));
 		}
 		
 		if (InColor.TextureDef.width != OutputWidth || InColor.TextureDef.height != OutputHeight)
@@ -1084,9 +1116,13 @@ inline void SceneAppNode::InputCopies(ID3D12GraphicsCommandList* cmd, uint64_t f
 
 inline void SceneAppNode::OutputCopies(ID3D12GraphicsCommandList* cmd, uint64_t frameCounter)
 {
+	// Render video mask (white where textured quad is visible)
+	AppInterface.Renderer.RenderVideoMask(cmd);
+	
 	// Get renderer's output textures
 	ID3D12Resource* rendererColor = AppInterface.Renderer.GetOutputTexture();
 	ID3D12Resource* rendererDepth = AppInterface.Renderer.GetDepthStencilBuffer();
+	ID3D12Resource* rendererVideoMask = AppInterface.Renderer.GetVideoMaskTexture();
 	
 	if (rendererColor)
 	{
@@ -1150,6 +1186,38 @@ inline void SceneAppNode::OutputCopies(ID3D12GraphicsCommandList* cmd, uint64_t 
 		
 		cmd->ResourceBarrier(2, barriers);
 		OutDepth.CurrentState = D3D12_RESOURCE_STATE_COMMON;
+	}
+	
+	if (rendererVideoMask)
+	{
+		// Transition video mask to copy source
+		D3D12_RESOURCE_BARRIER barriers[2] = {};
+		barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barriers[0].Transition.pResource = rendererVideoMask;
+		barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+		barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		
+		// Transition OutVideoMask to copy dest
+		barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barriers[1].Transition.pResource = OutVideoMask.Resource.Get();
+		barriers[1].Transition.StateBefore = OutVideoMask.CurrentState;
+		barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+		barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		
+		cmd->ResourceBarrier(2, barriers);
+		
+		// Copy video mask texture
+		cmd->CopyResource(OutVideoMask.Resource.Get(), rendererVideoMask);
+		
+		// Transition back
+		barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+		barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+		barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
+		
+		cmd->ResourceBarrier(2, barriers);
+		OutVideoMask.CurrentState = D3D12_RESOURCE_STATE_COMMON;
 	}
 }
 

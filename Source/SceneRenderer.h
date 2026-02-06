@@ -105,19 +105,25 @@ public:
 	// Output texture access
 	ID3D12Resource* GetOutputTexture() const { return m_OutputTexture.Get(); }
 	ID3D12Resource* GetDepthStencilBuffer() const { return m_DepthStencilBuffer.Get(); }
+	ID3D12Resource* GetVideoMaskTexture() const { return m_VideoMaskTexture.Get(); }
 
 	// Blit renderer output to a target render target (with resize if needed)
 	void BlitToRenderTarget(ID3D12GraphicsCommandList* cmdList, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, uint32_t targetWidth, uint32_t targetHeight);
+
+	// Render video mask (white pixels where textured quad is visible)
+	void RenderVideoMask(ID3D12GraphicsCommandList* cmdList);
 
 private:
 	void CreateRootSignature(ID3D12Device* device);
 	void CreatePipelineState(ID3D12Device* device, DXGI_FORMAT outputFormat);
 	void CreateTexturedPipelineState(ID3D12Device* device, DXGI_FORMAT outputFormat);
 	void CreateBlitPipeline(ID3D12Device* device, DXGI_FORMAT outputFormat);
+	void CreateMaskPipeline(ID3D12Device* device, DXGI_FORMAT outputFormat);
 	void CreateGeometryBuffers(ID3D12Device* device);
 	void CreateConstantBuffer(ID3D12Device* device);
 	void CreateOutputTexture(ID3D12Device* device, uint32_t width, uint32_t height);
 	void CreateDepthStencilBuffer(ID3D12Device* device, uint32_t width, uint32_t height);
+	void CreateVideoMaskTexture(ID3D12Device* device, uint32_t width, uint32_t height);
 	void CreateSRVHeap(ID3D12Device* device);
 	void UpdateQuadVertexBuffer();
 
@@ -132,6 +138,10 @@ private:
 	ComPtr<ID3D12RootSignature> m_BlitRootSignature;
 	ComPtr<ID3D12PipelineState> m_BlitPipelineState;
 	ComPtr<ID3D12DescriptorHeap> m_BlitSRVHeap;
+
+	// Mask pipeline (for rendering video mask)
+	ComPtr<ID3D12RootSignature> m_MaskRootSignature;
+	ComPtr<ID3D12PipelineState> m_MaskPipelineState;
 
 	// Geometry buffers
 	ComPtr<ID3D12Resource> m_CubeVertexBuffer;
@@ -160,8 +170,10 @@ private:
 
 	ComPtr<ID3D12Resource> m_OutputTexture;
 	ComPtr<ID3D12Resource> m_DepthStencilBuffer;
+	ComPtr<ID3D12Resource> m_VideoMaskTexture;
 	ComPtr<ID3D12DescriptorHeap> m_RTVHeap;
 	ComPtr<ID3D12DescriptorHeap> m_DSVHeap;
+	ComPtr<ID3D12DescriptorHeap> m_MaskRTVHeap;
 	ComPtr<ID3D12DescriptorHeap> m_SRVHeap;
 
 	// Input texture from Nodos

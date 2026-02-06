@@ -237,6 +237,54 @@ float4 main(PSInput input) : SV_TARGET
 }
 )";
 
+// Mask shaders (for rendering video mask - white where textured quad is visible)
+const char* g_MaskVertexShader = R"(
+cbuffer ConstantBuffer : register(b0)
+{
+	float4x4 WorldViewProj;
+	float4x4 World;
+	float3 LightDirection;
+	float Padding1;
+	float3 LightColor;
+	float LightIntensity;
+	float3 CameraPosition;
+	float Padding2;
+	float4 ObjectColor;
+};
+
+struct VSInput
+{
+	float3 Position : POSITION;
+	float3 Normal : NORMAL;
+	float4 Color : COLOR;
+	float2 TexCoord : TEXCOORD;
+};
+
+struct PSInput
+{
+	float4 Position : SV_POSITION;
+};
+
+PSInput main(VSInput input)
+{
+	PSInput output;
+	output.Position = mul(float4(input.Position, 1.0), WorldViewProj);
+	return output;
+}
+)";
+
+const char* g_MaskPixelShader = R"(
+struct PSInput
+{
+	float4 Position : SV_POSITION;
+};
+
+float4 main(PSInput input) : SV_TARGET
+{
+	return float4(1.0, 1.0, 1.0, 1.0); // White
+}
+)";
+
 // SceneRenderer implementation
 SceneRenderer::SceneRenderer()
 {
@@ -264,10 +312,12 @@ void SceneRenderer::Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, u
 	CreatePipelineState(device, outputFormat);
 	CreateTexturedPipelineState(device, outputFormat);
 	CreateBlitPipeline(device, outputFormat);
+	CreateMaskPipeline(device, outputFormat);
 	CreateGeometryBuffers(device);
 	CreateConstantBuffer(device);
 	CreateOutputTexture(device, width, height);
 	CreateDepthStencilBuffer(device, width, height);
+	CreateVideoMaskTexture(device, width, height);
 	CreateSRVHeap(device);
 }
 
@@ -578,6 +628,68 @@ void SceneRenderer::CreateBlitPipeline(ID3D12Device* device, DXGI_FORMAT outputF
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
 	device->CreateShaderResourceView(m_OutputTexture.Get(), &srvDesc, m_BlitSRVHeap->GetCPUDescriptorHandleForHeapStart());
+}
+
+void SceneRenderer::CreateMaskPipeline(ID3D12Device* device, DXGI_FORMAT outputFormat)
+{
+	// Use the same root signature as the main pipeline (has CBV)
+	m_MaskRootSignature = m_RootSignature;
+
+	// Compile shaders
+	ComPtr<ID3DBlob> vertexShader;
+	ComPtr<ID3DBlob> pixelShader;
+	ComPtr<ID3DBlob> error;
+	UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+
+	HRESULT hr = D3DCompile(g_MaskVertexShader, strlen(g_MaskVertexShader), nullptr, nullptr, nullptr,
+		"main", "vs_5_0", compileFlags, 0, &vertexShader, &error);
+	if (FAILED(hr))
+	{
+		if (error)
+			OutputDebugStringA((char*)error->GetBufferPointer());
+		throw std::runtime_error("Failed to compile mask vertex shader");
+	}
+
+	hr = D3DCompile(g_MaskPixelShader, strlen(g_MaskPixelShader), nullptr, nullptr, nullptr,
+		"main", "ps_5_0", compileFlags, 0, &pixelShader, &error);
+	if (FAILED(hr))
+	{
+		if (error)
+			OutputDebugStringA((char*)error->GetBufferPointer());
+		throw std::runtime_error("Failed to compile mask pixel shader");
+	}
+
+	// Input layout (same as textured quad)
+	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	// Create PSO with LESS_EQUAL depth test
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+	psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
+	psoDesc.pRootSignature = m_MaskRootSignature.Get();
+	psoDesc.VS = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
+	psoDesc.PS = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState.DepthEnable = TRUE;
+	psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // Don't write to depth
+	psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // LESS_EQUAL depth test
+	psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = outputFormat;
+	psoDesc.SampleDesc.Count = 1;
+
+	hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_MaskPipelineState));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create mask pipeline state");
 }
 
 void SceneRenderer::CreateGeometryBuffers(ID3D12Device* device)
@@ -919,6 +1031,59 @@ void SceneRenderer::CreateDepthStencilBuffer(ID3D12Device* device, uint32_t widt
 	device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), &dsvDesc, m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
+void SceneRenderer::CreateVideoMaskTexture(ID3D12Device* device, uint32_t width, uint32_t height)
+{
+	// Create descriptor heap for mask RTV
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+	rtvHeapDesc.NumDescriptors = 1;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	
+	HRESULT hr = device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_MaskRTVHeap));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create mask RTV descriptor heap");
+
+	// Create video mask texture
+	D3D12_RESOURCE_DESC textureDesc = {};
+	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	textureDesc.Width = width;
+	textureDesc.Height = height;
+	textureDesc.DepthOrArraySize = 1;
+	textureDesc.MipLevels = 1;
+	textureDesc.Format = m_OutputFormat;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.SampleDesc.Quality = 0;
+	textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.Format = m_OutputFormat;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 1.0f;
+
+	auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	
+	hr = device->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&textureDesc,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		&clearValue,
+		IID_PPV_ARGS(&m_VideoMaskTexture));
+	if (FAILED(hr))
+		throw std::runtime_error("Failed to create video mask texture");
+
+	// Create RTV
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = m_OutputFormat;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+	
+	device->CreateRenderTargetView(m_VideoMaskTexture.Get(), &rtvDesc, m_MaskRTVHeap->GetCPUDescriptorHandleForHeapStart());
+}
+
 void SceneRenderer::CreateSRVHeap(ID3D12Device* device)
 {
 	// Create descriptor heap for SRV (shader resource views)
@@ -1051,6 +1216,69 @@ void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 	}
 }
 
+void SceneRenderer::RenderVideoMask(ID3D12GraphicsCommandList* cmdList)
+{
+	// Update quad vertex buffer if corners changed
+	if (m_QuadCornersChanged)
+	{
+		UpdateQuadVertexBuffer();
+	}
+
+	// Set mask render target
+	CD3DX12_CPU_DESCRIPTOR_HANDLE maskRtvHandle(m_MaskRTVHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
+
+	// Clear mask to black
+	const float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	cmdList->ClearRenderTargetView(maskRtvHandle, clearColor, 0, nullptr);
+
+	// Set render target and depth stencil (READ-ONLY depth)
+	cmdList->OMSetRenderTargets(1, &maskRtvHandle, FALSE, &dsvHandle);
+
+	// Set viewport and scissor
+	D3D12_VIEWPORT viewport;
+	viewport.TopLeftX = 0.0f;
+	viewport.TopLeftY = 0.0f;
+	viewport.Width = static_cast<float>(m_Width);
+	viewport.Height = static_cast<float>(m_Height);
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+
+	D3D12_RECT scissorRect;
+	scissorRect.left = 0;
+	scissorRect.top = 0;
+	scissorRect.right = static_cast<LONG>(m_Width);
+	scissorRect.bottom = static_cast<LONG>(m_Height);
+
+	cmdList->RSSetViewports(1, &viewport);
+	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	// Set mask pipeline
+	cmdList->SetGraphicsRootSignature(m_MaskRootSignature.Get());
+	cmdList->SetPipelineState(m_MaskPipelineState.Get());
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Render textured quad only
+	for (size_t i = 0; i < m_Objects.size(); ++i)
+	{
+		const auto& obj = m_Objects[i];
+		if (obj.ObjectType != SceneObject::Type::TexturedQuad)
+			continue;
+
+		// Update constant buffer for this object
+		UpdateConstantBuffer(i);
+
+		// Set constant buffer
+		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = m_ConstantBuffer->GetGPUVirtualAddress() + (i * m_ConstantBufferSize);
+		cmdList->SetGraphicsRootConstantBufferView(0, cbAddress);
+
+		// Draw textured quad
+		cmdList->IASetVertexBuffers(0, 1, &m_QuadVertexBufferView);
+		cmdList->IASetIndexBuffer(&m_QuadIndexBufferView);
+		cmdList->DrawIndexedInstanced(m_QuadIndexCount, 1, 0, 0, 0);
+	}
+}
+
 void SceneRenderer::Resize(uint32_t width, uint32_t height)
 {
 	if (width == m_Width && height == m_Height)
@@ -1082,6 +1310,13 @@ void SceneRenderer::Resize(uint32_t width, uint32_t height)
 		m_DepthStencilBuffer.Reset();
 		m_DSVHeap.Reset();
 		CreateDepthStencilBuffer(m_Device.Get(), width, height);
+	}
+	
+	if (m_VideoMaskTexture)
+	{
+		m_VideoMaskTexture.Reset();
+		m_MaskRTVHeap.Reset();
+		CreateVideoMaskTexture(m_Device.Get(), width, height);
 	}
 }
 
