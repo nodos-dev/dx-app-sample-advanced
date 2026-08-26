@@ -14,9 +14,10 @@
 
 #include <Nodos/AppHelpers.hpp>
 #include <nosFlatBuffersCommon.h>
-#include <nosVulkanSubsystem/Types_generated.h>
+#include <nosSysVulkan/Types_generated.h>
+#include <nosSysVulkan/ResourceShare_generated.h>
 #include <nosTrack/Track_generated.h>
-#include <nosVulkanSubsystem/nosVulkanSubsystem.h>
+#include <nosSysVulkan/nosVulkanSubsystem.h>
 
 #define NOS_ENABLE_SYNC_LOGS 0
 
@@ -152,14 +153,14 @@ struct ExportedFence
 	HANDLE SharedHandle;
 };
 
-struct WinProcLoader final : public nos::app::IProcLoader
+struct WinProcLoader final : public nos::app::IAppApiProcLoader
 {
 public:
 	WinProcLoader(HMODULE module) : Module(module) {}
 	~WinProcLoader() { ::FreeLibrary(Module); }
-	ProcPtr GetProcAddress(const char* procName) override
+	ProcFuncPtr GetProcAddress(const char* procName) const override
 	{
-		return reinterpret_cast<ProcPtr>(::GetProcAddress(Module, procName));
+		return reinterpret_cast<ProcFuncPtr>(::GetProcAddress(Module, procName));
 	}
 	HMODULE Module;
 };
@@ -171,6 +172,7 @@ public:
 	void OnImport(nos::fb::Node const& appNode) override;
 	void OnRemoved() override;
 	void OnPinValueChanges(std::unordered_map<nos::uuid, nos::Buffer> const& pinValues) override;
+	void OnSkippedExecution(void* frameCtx, nos::app::SkippedExecutionInfo const& info) override;
 	void OnPreExecute(void* frameCtx, uint64_t frameNumber) override;
 	void OnPostExecute(void* frameCtx, uint64_t frameNumber) override;
 	void OnExecutionStateChanged(nos::app::ExecutionState newState, nos::app::ExecutionState oldState) override;
@@ -242,6 +244,31 @@ private:
 	
 	constexpr static size_t FramesInFlight = 3;
 	std::array<FrameResources, FramesInFlight> FrameResourcesArray{};
+
+	// Raises a fence to a value the app owes Nodos. Never lowers one: a D3D12 fence accepts a
+	// smaller value from the CPU, and handing Nodos a value that goes backwards strands it.
+	static void SignalFenceHost(ID3D12Fence* fence, uint64_t signalValue)
+	{
+		if (fence->GetCompletedValue() < signalValue)
+			fence->Signal(signalValue);
+	}
+
+	// Blocks until everything already submitted to the queue has run. Only safe once nothing
+	// submitted is parked on a value Nodos still owes, or this waits for a frame that never comes.
+	void WaitForGpuIdle()
+	{
+		ComPtr<ID3D12Fence> drainFence;
+		if (FAILED(Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&drainFence))))
+			return;
+		if (FAILED(CommandQueue->Signal(drainFence.Get(), 1)))
+			return;
+		if (drainFence->GetCompletedValue() >= 1)
+			return;
+		HANDLE event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+		drainFence->SetEventOnCompletion(1, event);
+		WaitForSingleObject(event, INFINITE);
+		CloseHandle(event);
+	}
 
 	void WaitOrSignalFence(ID3D12Fence* fence, uint64_t waitValue)
 	{
@@ -342,9 +369,23 @@ private:
 		}
 	}
 
-	void DestroyFrameResources()
+	// Ends a synchronization epoch. Releases every value our own submissions are parked on, waits
+	// for them to run, then puts the per-frame allocators back to the state frame 0 expects -
+	// Nodos restarts its frame counter at 0 for the next epoch, so the ring starts over too.
+	void DrainSyncEpoch()
 	{
 		SignalAndWaitAllFrames();
+		WaitForGpuIdle();
+		for (auto& frameRes : FrameResourcesArray)
+		{
+			frameRes.InputCopyResources.CommandAllocator->Reset();
+			frameRes.OutputCopyResources.CommandAllocator->Reset();
+		}
+	}
+
+	void DestroyFrameResources()
+	{
+		WaitForGpuIdle();
 		for (uint32_t i = 0; i < FramesInFlight; i++)
 		{
 			FrameResourcesArray[i] = {};
@@ -404,6 +445,12 @@ private:
 			CloseHandle(exportedFence.SharedHandle);
 	}
 
+	// In 1.4 the app tells nos.sys.vulkan about shared resources and sync fences directly, as a
+	// ResourceShareMessage wrapped in an app.CustomMessage. The engine routes it by plugin name
+	// and resolves the process node from the connection, so there is no node id to send.
+	void SendResourceShareMessage(nos::sys::vulkan::ResourceShareMessageUnion messageType,
+		flatbuffers::Offset<void> message, flatbuffers::FlatBufferBuilder& messageBuilder);
+	void SendImportResource(nos::uuid const& pinId, nos::sys::vulkan::TTexture const& texDef);
 	void SendSemaphoresToNodos();
 };
 
@@ -501,13 +548,20 @@ void NodosSceneInterface::Initialize(ID3D12Device* device, ID3D12CommandQueue* c
 		std::filesystem::path bundleRoot = exeDir;
 		for (int i = 0; i < 4; ++i)
 			bundleRoot = bundleRoot.parent_path();
-		std::string appSdkVersion = "18.4";
+		std::string appSdkVersion = "21.0";
 		std::optional<std::string> sdkPathOpt = GetSdkPathFromNosman(bundleRoot.string(), appSdkVersion);
 		if (sdkPathOpt)
 		{
-			std::string candidate = *sdkPathOpt + "\\bin\\nosAppSDK.dll";
-			if (FileExists(candidate))
-				m_InternalState->NodosSdkDllPath = candidate;
+			// 1.3 kept the DLL in bin, 1.4 in Binaries. Try both while both engines are around.
+			for (const char* sub : {"\\bin\\nosAppSDK.dll", "\\Binaries\\nosAppSDK.dll"})
+			{
+				std::string candidate = *sdkPathOpt + sub;
+				if (FileExists(candidate))
+				{
+					m_InternalState->NodosSdkDllPath = candidate;
+					break;
+				}
+			}
 		}
 	}
 
@@ -516,10 +570,14 @@ void NodosSceneInterface::Initialize(ID3D12Device* device, ID3D12CommandQueue* c
 		const char* sdkDir = std::getenv("NODOS_SDK_DIR");
 		if (sdkDir)
 		{
-			std::string candidate = std::string(sdkDir) + "/bin/nosAppSDK.dll";
-			if (FileExists(candidate))
+			for (const char* sub : {"/bin/nosAppSDK.dll", "/Binaries/nosAppSDK.dll"})
 			{
-				m_InternalState->NodosSdkDllPath = candidate;
+				std::string candidate = std::string(sdkDir) + sub;
+				if (FileExists(candidate))
+				{
+					m_InternalState->NodosSdkDllPath = candidate;
+					break;
+				}
 			}
 		}
 	}
@@ -543,8 +601,8 @@ void NodosSceneInterface::Initialize(ID3D12Device* device, ID3D12CommandQueue* c
 
 	m_InternalState->NodosProcLoader = std::make_unique<WinProcLoader>(sdkModule);
 
-	nos::app::ApplicationInfo appInfo{
-		.AppKey = m_InternalState->NodosAppKey.c_str(), 
+	nosApplicationInfo appInfo{
+		.AppKey = m_InternalState->NodosAppKey.c_str(),
 		.AppName = "DX12 Scene Renderer"
 	};
 	
@@ -556,7 +614,7 @@ void NodosSceneInterface::Initialize(ID3D12Device* device, ID3D12CommandQueue* c
 		Must(false, std::string("Failed to create Nodos Communicator: " + *err).c_str());
 	}
 
-	m_InternalState->Nodos = std::move(*nodosCommunicator.Get());
+	m_InternalState->Nodos = std::move(*nodosCommunicator);
 }
 
 void NodosSceneInterface::PreFrame()
@@ -594,6 +652,20 @@ inline SceneAppNode::SceneAppNode(NodosSceneInterface::InternalState& appInterfa
 	, Device(appInterface.Device)
 	, CommandQueue(appInterface.CommandQueue)
 {
+}
+
+// 1.4 took `unscaled` off the texture value and put it on the pin, as a "texture_options"
+// extension carrying a nos.sys.vulkan.TexturePinOptions. The app owns these images, so without it
+// Nodos resizes them to match whatever the pin connects to and the memory it imported no longer
+// describes what it reads. The extension payload is an opaque blob, hence the nested builder.
+inline flatbuffers::Offset<nos::fb::PinExtension> CreateUnscaledTextureOptions(flatbuffers::FlatBufferBuilder& fbb)
+{
+	flatbuffers::FlatBufferBuilder optionsBuilder;
+	optionsBuilder.Finish(nos::sys::vulkan::CreateTexturePinOptions(optionsBuilder, true));
+	std::vector<uint8_t> optionsData(optionsBuilder.GetBufferPointer(),
+		optionsBuilder.GetBufferPointer() + optionsBuilder.GetSize());
+	return nos::fb::CreatePinExtensionDirect(fbb, "texture_options",
+		nos::sys::vulkan::TexturePinOptions::GetFullyQualifiedName(), &optionsData);
 }
 
 inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
@@ -689,36 +761,40 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 	{
 		outColorPinId = GenerateId();
 		outColorNew = true;
+		std::vector<flatbuffers::Offset<nos::fb::PinExtension>> extensions{CreateUnscaledTextureOptions(fbb)};
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*outColorPinId, OutColorPinName,
 			nos::sys::vulkan::Texture::GetFullyQualifiedName(), nos::fb::ShowAs::OUTPUT_PIN,
-			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, 0, &colorTexBuf));
+			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, &colorTexBuf, &extensions));
 	}
 	
 	if (!outDepthPinId)
 	{
 		outDepthPinId = GenerateId();
 		outDepthNew = true;
+		std::vector<flatbuffers::Offset<nos::fb::PinExtension>> extensions{CreateUnscaledTextureOptions(fbb)};
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*outDepthPinId, OutDepthPinName,
 			nos::sys::vulkan::Texture::GetFullyQualifiedName(), nos::fb::ShowAs::OUTPUT_PIN,
-			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, 0, &depthTexBuf));
+			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, &depthTexBuf, &extensions));
 	}
 	
 	if (!outVideoMaskPinId)
 	{
 		outVideoMaskPinId = GenerateId();
 		outVideoMaskNew = true;
+		std::vector<flatbuffers::Offset<nos::fb::PinExtension>> extensions{CreateUnscaledTextureOptions(fbb)};
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*outVideoMaskPinId, OutVideoMaskPinName,
 			nos::sys::vulkan::Texture::GetFullyQualifiedName(), nos::fb::ShowAs::OUTPUT_PIN,
-			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, 0, &videoMaskTexBuf));
+			nos::fb::CanShowAs::OUTPUT_PIN_ONLY, nullptr, &videoMaskTexBuf, &extensions));
 	}
 	
 	if (!inColorPinId)
 	{
 		inColorPinId = GenerateId();
 		inColorNew = true;
+		std::vector<flatbuffers::Offset<nos::fb::PinExtension>> extensions{CreateUnscaledTextureOptions(fbb)};
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*inColorPinId, InColorPinName,
 			nos::sys::vulkan::Texture::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
-			nos::fb::CanShowAs::INPUT_PIN_ONLY, nullptr, 0, &inColorTexBuf));
+			nos::fb::CanShowAs::INPUT_PIN_ONLY, nullptr, &inColorTexBuf, &extensions));
 	}
 	
 	if (!trackPinId)
@@ -727,7 +803,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		trackPinId = GenerateId();
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*trackPinId, TrackPinName, 
 			nos::track::Track::GetFullyQualifiedName(),
-			nos::fb::ShowAs::INPUT_PIN, nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &trackBuf));
+			nos::fb::ShowAs::INPUT_PIN, nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, &trackBuf));
 	}
 	
 	if (!resolutionPinId)
@@ -738,7 +814,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		resolutionPinId = GenerateId();
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*resolutionPinId, ResolutionPinName,
 			nos::fb::vec2u::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
-			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &resBuf));
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, &resBuf));
 	}
 
 	// Create quad corner pins
@@ -749,7 +825,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		quadP0PinId = GenerateId();
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP0PinId, QuadP0PinName,
 			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
-			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, &vec3Buf));
 	}
 
 	if (!quadP1PinId)
@@ -759,7 +835,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		quadP1PinId = GenerateId();
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP1PinId, QuadP1PinName,
 			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
-			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, &vec3Buf));
 	}
 
 	if (!quadP2PinId)
@@ -769,7 +845,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		quadP2PinId = GenerateId();
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP2PinId, QuadP2PinName,
 			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
-			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, &vec3Buf));
 	}
 
 	if (!quadP3PinId)
@@ -779,7 +855,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		quadP3PinId = GenerateId();
 		pins.push_back(nos::fb::CreatePinDirect(fbb, &*quadP3PinId, QuadP3PinName,
 			nos::fb::vec3::GetFullyQualifiedName(), nos::fb::ShowAs::INPUT_PIN,
-			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, 0, &vec3Buf));
+			nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY, nullptr, &vec3Buf));
 	}
 
 	if (pins.size() > 0)
@@ -788,7 +864,7 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 			0, 0, 0, 0, 0, 0, 0,
 			nos::fb::CreateNodeOrphanStateDirect(fbb, nos::fb::NodeOrphanStateType::ACTIVE, "")));
 		nos::Buffer update = fbb.Release();
-		AppInterface.Nodos->GetClient().SendPartialNodeUpdate(*update.As<nos::PartialNodeUpdate>());
+		AppInterface.Nodos->GetClient().SendPartialNodeUpdate(update.As<nos::PartialNodeUpdate>());
 	}
 
 	TrackPinId = *trackPinId;
@@ -815,6 +891,13 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 		nos::fb::vec2u resolution{OutputWidth, OutputHeight};
 		AppInterface.Nodos->NotifyPinValueChanged(ResolutionPinId, nos::Buffer::From(resolution));
 	}
+
+	// The pin value only describes the texture now. The handle that actually crosses the process
+	// boundary travels here instead, once per shared pin.
+	SendImportResource(OutColorPinId, OutColor.TextureDef);
+	SendImportResource(OutDepthPinId, OutDepth.TextureDef);
+	SendImportResource(OutVideoMaskPinId, OutVideoMask.TextureDef);
+	SendImportResource(InColorPinId, InColor.TextureDef);
 
 	OutputResolutionChanged = true;
 	CreateFrameResources();
@@ -869,6 +952,23 @@ inline void SceneAppNode::OnPinValueChanges(std::unordered_map<nos::uuid, nos::B
 	}
 }
 
+// AppExecuteStart(reset=true) cancels requests Nodos had already sent, but nos.sys.vulkan queued
+// the copies for those frames before the message went out, and they are waiting on values only
+// this app can produce. Hand them over so nothing on either side stays parked. This is not an
+// epoch boundary: the fences stay, and the frames here are all past the last one submitted, so
+// signalling them can never drop a value below one of our own queued signals.
+inline void SceneAppNode::OnSkippedExecution(void* frameCtx, nos::app::SkippedExecutionInfo const& info)
+{
+	if (!Sync)
+		return;
+
+	for (uint64_t frameNumber = info.FirstSkippedFrame; frameNumber <= info.LastSkippedFrame; frameNumber++)
+	{
+		SignalFenceHost(Sync->InputFence.Fence.Get(), GetInputSignalValue(frameNumber));
+		SignalFenceHost(Sync->OutputFence.Fence.Get(), GetOutputSignalValue(frameNumber));
+	}
+}
+
 inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 {
 	if (!Sync)
@@ -905,15 +1005,8 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 	
 	if (OutputResolutionChanged)
 	{
-		// Wait for GPU to finish all work
-		ComPtr<ID3D12Fence> waitFence;
-		Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&waitFence));
-		CommandQueue->Signal(waitFence.Get(), 1);
-		HANDLE event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
-		waitFence->SetEventOnCompletion(1, event);
-		WaitForSingleObject(event, INFINITE);
-		CloseHandle(event);
-		
+		WaitForGpuIdle();
+
 		AppInterface.Renderer.Resize(OutputWidth, OutputHeight);
 		
 		// Recreate textures if needed
@@ -923,6 +1016,7 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 			OutColor = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_R8G8B8A8_UNORM,
 				D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, false);
 			AppInterface.Nodos->NotifyPinValueChanged(OutColorPinId, nos::Buffer::From(OutColor.TextureDef));
+			SendImportResource(OutColorPinId, OutColor.TextureDef);
 		}
 		
 		if (OutDepth.TextureDef.width != OutputWidth || OutDepth.TextureDef.height != OutputHeight)
@@ -931,6 +1025,7 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 			OutDepth = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_D32_FLOAT,
 				D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, true);
 			AppInterface.Nodos->NotifyPinValueChanged(OutDepthPinId, nos::Buffer::From(OutDepth.TextureDef));
+			SendImportResource(OutDepthPinId, OutDepth.TextureDef);
 		}
 		
 		if (OutVideoMask.TextureDef.width != OutputWidth || OutVideoMask.TextureDef.height != OutputHeight)
@@ -939,6 +1034,7 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 			OutVideoMask = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_R8G8B8A8_UNORM,
 				D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, false);
 			AppInterface.Nodos->NotifyPinValueChanged(OutVideoMaskPinId, nos::Buffer::From(OutVideoMask.TextureDef));
+			SendImportResource(OutVideoMaskPinId, OutVideoMask.TextureDef);
 		}
 		
 		if (InColor.TextureDef.width != OutputWidth || InColor.TextureDef.height != OutputHeight)
@@ -947,6 +1043,7 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 			InColor = *CreateExportedTexture(OutputWidth, OutputHeight, DXGI_FORMAT_R8G8B8A8_UNORM,
 				D3D12_RESOURCE_FLAG_NONE, false);
 			AppInterface.Nodos->NotifyPinValueChanged(InColorPinId, nos::Buffer::From(InColor.TextureDef));
+			SendImportResource(InColorPinId, InColor.TextureDef);
 		}
 		
 		OutputResolutionChanged = false;
@@ -1001,14 +1098,17 @@ void SceneAppNode::OnExecutionStateChanged(nos::app::ExecutionState newState, no
 	if (oldState == nos::app::ExecutionState::SYNCED)
 	{
 		assert(Sync);
-		SignalAndWaitAllFrames();
+		DrainSyncEpoch();
 		DestroyFence(Sync->InputFence);
 		DestroyFence(Sync->OutputFence);
 		Sync = std::nullopt;
 	}
-	
+
 	if (newState == nos::app::ExecutionState::SYNCED)
 	{
+		// A fresh pair every time, never the old one. These are timeline fences and Nodos
+		// restarts its frame counter at 0 for the new epoch, so a reused fence is already past
+		// the values that epoch waits on and every wait would pass instantly.
 		Sync = SyncState{};
 		Sync->InputFence = *CreateExportedFence();
 		Sync->OutputFence = *CreateExportedFence();
@@ -1060,7 +1160,6 @@ inline std::optional<ExportedTexture> SceneAppNode::CreateExportedTexture(uint32
 
 	// Create Nodos texture definition (uses Vulkan-style format)
 	nos::sys::vulkan::TTexture texDef{};
-	texDef.resolution = nos::sys::vulkan::SizePreset::CUSTOM;
 	texDef.width = width;
 	texDef.height = height;
 
@@ -1073,9 +1172,8 @@ inline std::optional<ExportedTexture> SceneAppNode::CreateExportedTexture(uint32
 		default: assert(false && "Unsupported format"); break;
 	}
 
-	texDef.unscaled = true;
-	texDef.offset = 0;
-	
+	// `unscaled` moved onto the pin as a texture_options extension, and the offset moved from the
+	// texture onto the memory. Committed resources own their whole allocation, so it stays 0.
 	auto& extMem = texDef.external_memory;
 	extMem.mutate_handle((uint64_t)sharedHandle);
 	extMem.mutate_handle_type(
@@ -1083,6 +1181,7 @@ inline std::optional<ExportedTexture> SceneAppNode::CreateExportedTexture(uint32
 	auto resourceDesc = resource->GetDesc();
 	extMem.mutate_allocation_size(Device->GetResourceAllocationInfo(0, 1, &resourceDesc).SizeInBytes);  // DX12 doesn't expose allocation size the same way
 	extMem.mutate_pid(_getpid());
+	extMem.mutate_offset(0);
 
 	return ExportedTexture{resource, sharedHandle, texDef, initialState};
 }
@@ -1221,19 +1320,46 @@ inline void SceneAppNode::OutputCopies(ID3D12GraphicsCommandList* cmd, uint64_t 
 	}
 }
 
+inline void SceneAppNode::SendResourceShareMessage(nos::sys::vulkan::ResourceShareMessageUnion messageType,
+	flatbuffers::Offset<void> message, flatbuffers::FlatBufferBuilder& messageBuilder)
+{
+	// The ResourceShareMessage is a buffer of its own, then carried as an opaque payload inside
+	// the CustomMessage, so it takes two builders.
+	messageBuilder.Finish(nos::sys::vulkan::CreateResourceShareMessage(messageBuilder, messageType, message));
+	std::vector<uint8_t> payload(messageBuilder.GetBufferPointer(),
+		messageBuilder.GetBufferPointer() + messageBuilder.GetSize());
+
+	flatbuffers::FlatBufferBuilder eventBuilder;
+	eventBuilder.Finish(nos::CreateAppEventOffset(eventBuilder,
+		nos::app::CreateCustomMessageDirect(eventBuilder, "nos.sys.vulkan",
+			nos::sys::vulkan::ResourceShareMessage::GetFullyQualifiedName(), &payload)));
+	auto buf = eventBuilder.Release();
+	AppInterface.Nodos->GetClient().Send(flatbuffers::GetRoot<nos::app::AppEvent>(buf.data()));
+}
+
+inline void SceneAppNode::SendImportResource(nos::uuid const& pinId, nos::sys::vulkan::TTexture const& texDef)
+{
+	flatbuffers::FlatBufferBuilder mb;
+	auto texture = nos::sys::vulkan::Texture::Pack(mb, &texDef);
+	auto importResource = nos::sys::vulkan::CreateImportResource(mb, &pinId,
+		nos::sys::vulkan::ResourceUnion::Texture, texture.Union());
+	SendResourceShareMessage(nos::sys::vulkan::ResourceShareMessageUnion::ImportResource,
+		importResource.Union(), mb);
+}
+
 inline void SceneAppNode::SendSemaphoresToNodos()
 {
 	assert(Sync);
 	uint64_t inputSemaphore = (uint64_t)Sync->InputFence.SharedHandle;
 	uint64_t outputSemaphore = (uint64_t)Sync->OutputFence.SharedHandle;
-	
+
+	// Nothing executes until this pair lands: nos.sys.vulkan only subscribes the node for
+	// execution once both fences import, and until then it skips every frame.
 	flatbuffers::FlatBufferBuilder mb;
-	auto offset = nos::CreateAppEventOffset(mb, nos::app::CreateSetSyncSemaphores(mb, &NodeId, _getpid(), 
-		inputSemaphore, outputSemaphore));
-	mb.Finish(offset);
-	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
-	AppInterface.Nodos->GetClient().Send(*root);
+	auto semaphores = nos::sys::vulkan::CreateSetInputOutputSyncSemaphores(mb, _getpid(),
+		inputSemaphore, outputSemaphore);
+	SendResourceShareMessage(nos::sys::vulkan::ResourceShareMessageUnion::SetInputOutputSyncSemaphores,
+		semaphores.Union(), mb);
 }
 
 }  // namespace nos::dxapp

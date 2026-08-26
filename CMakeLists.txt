@@ -10,9 +10,9 @@ set(NODOS_WORKSPACE_DIR "../../../" CACHE PATH "Path to Nodos workspace")
 
 message(STATUS "Nodos workspace directory: ${NODOS_WORKSPACE_DIR}")
 
-set(NODOS_PROCESS_SDK_VERSION "18.4" CACHE STRING "Version of Nodos SDK to use")
-set(NOS_SYS_VULKAN_VERSION "6.0" CACHE STRING "Version of nos.sys.vulkan module to use")
-set(NOS_REQUESTED_TRACK_VERSION "1.9" CACHE STRING "Version of nos.track module to use")
+set(NODOS_PROCESS_SDK_VERSION "21.0" CACHE STRING "Version of Nodos SDK to use")
+set(NOS_SYS_VULKAN_VERSION "8.0" CACHE STRING "Version of nos.sys.vulkan module to use")
+set(NOS_REQUESTED_TRACK_VERSION "3.0" CACHE STRING "Version of nos.track module to use")
 # Nodos SDK Configuration
 if (EXISTS ${NODOS_WORKSPACE_DIR}/nodos${CMAKE_EXECUTABLE_SUFFIX})
     set(NOSMAN_WORKSPACE_DIR ${NODOS_WORKSPACE_DIR})
@@ -75,6 +75,11 @@ endif()
 include(${NODOS_WORKSPACE_DIR}/Toolchain/CMake/Scripts/Utils.cmake)
 include(${NODOS_WORKSPACE_DIR}/Toolchain/CMake/Scripts/Projects.cmake)
 
+# Nodos 1.4 modules ship their schemas instead of pre-generated headers, so nos_get_module
+# builds the headers itself and needs a flatc and the SDK's own schemas to include from.
+set(FLATC_EXECUTABLE "${NODOS_SDK_DIR}/Binaries/flatc${CMAKE_EXECUTABLE_SUFFIX}" CACHE PATH "Path to the flatc executable" FORCE)
+set(NOS_SDK_TYPES_DIR "${NODOS_SDK_DIR}/Types" CACHE PATH "Path to the Nodos SDK types directory" FORCE)
+
 # Get nos.sys.vulkan
 nos_get_module("nos.sys.vulkan" "${NOS_SYS_VULKAN_VERSION}" NOS_SYS_VULKAN_TARGET)
 message(STATUS "nos.sys.vulkan target: ${NOS_SYS_VULKAN_TARGET}")
@@ -84,7 +89,7 @@ nos_get_module("nos.track" "${NOS_REQUESTED_TRACK_VERSION}" NOS_TRACK_TARGET)
 message(STATUS "nos.track target: ${NOS_TRACK_TARGET}")
 
 add_library(nosAppSDK INTERFACE)
-target_include_directories(nosAppSDK INTERFACE ${NODOS_SDK_DIR}/include)
+target_include_directories(nosAppSDK INTERFACE ${NODOS_SDK_DIR}/Include)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -102,7 +107,7 @@ target_link_libraries(NosDxAppSampleAdv PRIVATE
     Shlwapi.lib
 )
 
-target_compile_definitions(NosDxAppSampleAdv PRIVATE NODOS_APP_SDK_DLL="${NODOS_SDK_DIR}/bin/nosAppSDK.dll")
+target_compile_definitions(NosDxAppSampleAdv PRIVATE NODOS_APP_SDK_DLL="${NODOS_SDK_DIR}/Binaries/nosAppSDK.dll")
 
 set_target_properties(NosDxAppSampleAdv PROPERTIES
     PREFIX ""
