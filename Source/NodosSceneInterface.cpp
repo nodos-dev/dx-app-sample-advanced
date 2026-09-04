@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <random>
 #include <array>
+#include <atomic>
 
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -211,8 +212,12 @@ private:
 	{
 		ExportedFence InputFence;
 		ExportedFence OutputFence;
+		// Highest frame each timeline has been advanced for, with or without GPU work.
 		std::optional<uint64_t> LastInputFrameNumber = std::nullopt;
 		std::optional<uint64_t> LastOutputFrameNumber = std::nullopt;
+		// Frame whose copies were skipped because the queue was stuck. Its timelines were advanced
+		// without work, so OnPostExecute must not add any.
+		std::optional<uint64_t> SkippedFrame = std::nullopt;
 	};
 	std::optional<SyncState> Sync;
 
@@ -237,13 +242,36 @@ private:
 		{
 			ComPtr<ID3D12CommandAllocator> CommandAllocator;
 			ComPtr<ID3D12GraphicsCommandList> CommandList;
+			// Frame whose list this slot still holds, until the GPU has run it.
+			std::optional<uint64_t> SubmittedFrame;
 		};
 		WorkGroupResources InputCopyResources;
 		WorkGroupResources OutputCopyResources;
 	};
-	
+
 	constexpr static size_t FramesInFlight = 3;
 	std::array<FrameResources, FramesInFlight> FrameResourcesArray{};
+
+	// An epoch whose GPU work never drained. The queue may still reference all of it, so it stays
+	// alive until the node goes away.
+	struct RetiredEpoch
+	{
+		ExportedFence InputFence;
+		ExportedFence OutputFence;
+		std::array<FrameResources, FramesInFlight> FrameResourcesArray;
+	};
+	std::vector<RetiredEpoch> RetiredEpochs;
+
+	// How long a steady-state frame waits for its own earlier work. Longer than that means Nodos
+	// stopped answering, and the frame must give up rather than block the thread that would
+	// process the IDLE ending the epoch.
+	constexpr static uint32_t FrameWaitTimeoutMs = 1000;
+	// How long an epoch is given to drain. Nodos gives its own retirement two seconds; waiting
+	// less would give up on a peer that is still going to answer.
+	constexpr static uint32_t EpochDrainTimeoutMs = 2000;
+
+	ComPtr<ID3D12Fence> DrainFence;
+	uint64_t DrainFenceValue = 0;
 
 	// Raises a fence to a value the app owes Nodos. Never lowers one: a D3D12 fence accepts a
 	// smaller value from the CPU, and handing Nodos a value that goes backwards strands it.
@@ -253,65 +281,56 @@ private:
 			fence->Signal(signalValue);
 	}
 
-	// Blocks until everything already submitted to the queue has run. Only safe once nothing
-	// submitted is parked on a value Nodos still owes, or this waits for a frame that never comes.
-	void WaitForGpuIdle()
+	// Blocks until the fence reaches the value or the time runs out. Never signals anything.
+	static bool WaitForFenceValue(ID3D12Fence* fence, uint64_t value, uint32_t timeoutMs)
 	{
-		ComPtr<ID3D12Fence> drainFence;
-		if (FAILED(Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&drainFence))))
-			return;
-		if (FAILED(CommandQueue->Signal(drainFence.Get(), 1)))
-			return;
-		if (drainFence->GetCompletedValue() >= 1)
-			return;
+		if (fence->GetCompletedValue() >= value)
+			return true;
 		HANDLE event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
-		drainFence->SetEventOnCompletion(1, event);
-		WaitForSingleObject(event, INFINITE);
+		if (!event)
+			return false;
+		bool reached = SUCCEEDED(fence->SetEventOnCompletion(value, event)) &&
+					   WaitForSingleObject(event, timeoutMs) == WAIT_OBJECT_0;
 		CloseHandle(event);
+		return reached;
 	}
 
-	void WaitOrSignalFence(ID3D12Fence* fence, uint64_t waitValue)
+	// Blocks until everything already submitted to the queue has run, or the time runs out. Work
+	// parked on a value Nodos still owes keeps this from finishing, so it is always bounded.
+	bool WaitForGpuIdle(uint32_t timeoutMs)
 	{
-		constexpr uint64_t waitBeforeSignalMs = 100;  // 100 ms
-		while (true)
-		{
-			uint64_t currentValue = fence->GetCompletedValue();
-			if (currentValue >= waitValue)
-				return;
-			
-			// Try to signal if it's stuck
-			HANDLE event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
-			fence->SetEventOnCompletion(waitValue, event);
-			DWORD result = WaitForSingleObject(event, waitBeforeSignalMs);
-			CloseHandle(event);
-			
-			if (result == WAIT_OBJECT_0)
-				return;
-				
-			// Signal manually if needed
-			fence->Signal(waitValue);
-		}
+		if (!DrainFence && FAILED(Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&DrainFence))))
+			return false;
+		++DrainFenceValue;
+		if (FAILED(CommandQueue->Signal(DrainFence.Get(), DrainFenceValue)))
+			return false;
+		return WaitForFenceValue(DrainFence.Get(), DrainFenceValue, timeoutMs);
 	}
 
-	FrameResources::WorkGroupResources BeginNewFrameForWorkGroupResources(SyncState& sync, uint64_t frameNumber, bool inputResources)
+	// Claims the ring slot for this frame. Returns null when the frame that last used the slot
+	// has not finished on the GPU in time; the caller must then skip the frame.
+	FrameResources::WorkGroupResources* BeginNewFrameForWorkGroupResources(uint64_t frameNumber, bool inputResources)
 	{
 		size_t frameIndex = frameNumber % FramesInFlight;
 		FrameResources& frameRes = FrameResourcesArray[frameIndex];
 		auto& workResources = inputResources ? frameRes.InputCopyResources : frameRes.OutputCopyResources;
 
-		if (frameNumber >= FramesInFlight)
+		if (workResources.SubmittedFrame)
 		{
-			uint64_t frameToWait = frameNumber - FramesInFlight;
-			ID3D12Fence* fenceToWait = inputResources ? sync.InputFence.Fence.Get() : sync.OutputFence.Fence.Get();
-			uint64_t waitValue = inputResources ? GetInputWaitValue(frameToWait) : GetOutputWaitValue(frameToWait);
-
-			WaitOrSignalFence(fenceToWait, waitValue);
+			// Wait for our own completion signal of that frame, not the value Nodos signals for
+			// it: the list runs between the two, and the allocator cannot be reset while it does.
+			ID3D12Fence* fence = inputResources ? Sync->InputFence.Fence.Get() : Sync->OutputFence.Fence.Get();
+			uint64_t doneValue = inputResources ? GetInputSignalValue(*workResources.SubmittedFrame)
+												: GetOutputSignalValue(*workResources.SubmittedFrame);
+			if (!WaitForFenceValue(fence, doneValue, FrameWaitTimeoutMs))
+				return nullptr;
+			workResources.SubmittedFrame.reset();
 			Must(SUCCEEDED(workResources.CommandAllocator->Reset()), "Failed to reset command allocator");
 		}
-		
-		Must(SUCCEEDED(workResources.CommandList->Reset(workResources.CommandAllocator.Get(), nullptr)), 
+
+		Must(SUCCEEDED(workResources.CommandList->Reset(workResources.CommandAllocator.Get(), nullptr)),
 			"Failed to reset command list");
-		return workResources;
+		return &workResources;
 	}
 
 	FrameResources::WorkGroupResources CreateWorkGroupResources()
@@ -341,55 +360,73 @@ private:
 		}
 	}
 
-	void SignalAndWaitAllFrames()
+	// The completed value says which frame a timeline is inside, and every frame below that one
+	// is finished: input frames finish on 2F+2, output frames on 2F+1.
+	static uint64_t FirstUnfinishedFrame(ID3D12Fence* fence, bool inputResources)
 	{
-		if (!Sync)
+		uint64_t completed = fence->GetCompletedValue();
+		return inputResources ? completed / 2 : (completed + 1) / 2;
+	}
+
+	// Raises the values our queue is parked on, for a peer that will not produce them. Walks the
+	// frames in order and lets our own signal for each land before raising the next: one high
+	// signal would not do, because our queued signal for an earlier frame lands after it and
+	// pulls the fence back down. Input and output alternate the way they were submitted, so a
+	// frame's output work is released before the next frame's input work queued behind it.
+	bool ReleaseParkedWaits(uint32_t stepTimeoutMs)
+	{
+		if (!Sync->LastInputFrameNumber && !Sync->LastOutputFrameNumber)
+			return true;
+		ID3D12Fence* inputFence = Sync->InputFence.Fence.Get();
+		ID3D12Fence* outputFence = Sync->OutputFence.Fence.Get();
+		uint64_t frame = std::min(FirstUnfinishedFrame(inputFence, true), FirstUnfinishedFrame(outputFence, false));
+		uint64_t lastFrame = std::max(Sync->LastInputFrameNumber.value_or(0), Sync->LastOutputFrameNumber.value_or(0));
+		auto release = [&](ID3D12Fence* fence, std::optional<uint64_t> last, uint64_t waitValue, uint64_t doneValue)
+		{
+			if (!last || frame > *last)
+				return true;
+			SignalFenceHost(fence, waitValue);
+			return WaitForFenceValue(fence, doneValue, stepTimeoutMs);
+		};
+		for (; frame <= lastFrame; frame++)
+		{
+			if (!release(inputFence, Sync->LastInputFrameNumber, GetInputWaitValue(frame), GetInputSignalValue(frame)) ||
+				!release(outputFence, Sync->LastOutputFrameNumber, GetOutputWaitValue(frame), GetOutputSignalValue(frame)))
+				return false;
+		}
+		return true;
+	}
+
+	void DrainSyncEpoch();
+
+	// Leaks on purpose. Destroying an object the GPU may still reference is worse than a leak in
+	// a node that is going away anyway.
+	template <class T>
+	static void LeakOnPurpose(T&& objects)
+	{
+		new std::remove_cvref_t<T>(std::move(objects));
+	}
+
+	// Runs once the node is gone. Nothing new can be queued for it, so this is the last chance
+	// to drain. Returns false if the queue never drained; the caller must then leak the rest too.
+	bool DestroyFrameResources()
+	{
+		if (!WaitForGpuIdle(EpochDrainTimeoutMs))
+		{
+			std::cerr << "GPU work still pending at node removal; leaking its fences and command lists" << std::endl;
+			LeakOnPurpose(std::move(RetiredEpochs));
+			LeakOnPurpose(std::move(FrameResourcesArray));
+			LeakOnPurpose(std::move(DrainFence));
 			return;
-			
-		if (Sync->LastInputFrameNumber)
-		{
-			uint64_t firstInputFrameToWait = *Sync->LastInputFrameNumber >= FramesInFlight ? 
-				*Sync->LastInputFrameNumber - FramesInFlight + 1 : 0;
-			uint64_t lastFrameToWait = *Sync->LastInputFrameNumber;
-			for (uint64_t frameNum = firstInputFrameToWait; frameNum <= lastFrameToWait; frameNum++)
-			{
-				WaitOrSignalFence(Sync->InputFence.Fence.Get(), GetInputWaitValue(frameNum));
-			}
 		}
-		
-		if (Sync->LastOutputFrameNumber)
+		for (auto& epoch : RetiredEpochs)
 		{
-			uint64_t firstOutputFrameToWait = *Sync->LastOutputFrameNumber >= FramesInFlight ? 
-				*Sync->LastOutputFrameNumber - FramesInFlight + 1 : 0;
-			uint64_t lastFrameToWait = *Sync->LastOutputFrameNumber;
-			for (uint64_t frameNum = firstOutputFrameToWait; frameNum <= lastFrameToWait; frameNum++)
-			{
-				WaitOrSignalFence(Sync->OutputFence.Fence.Get(), GetOutputWaitValue(frameNum));
-			}
+			DestroyFence(epoch.InputFence);
+			DestroyFence(epoch.OutputFence);
 		}
-	}
-
-	// Ends a synchronization epoch. Releases every value our own submissions are parked on, waits
-	// for them to run, then puts the per-frame allocators back to the state frame 0 expects -
-	// Nodos restarts its frame counter at 0 for the next epoch, so the ring starts over too.
-	void DrainSyncEpoch()
-	{
-		SignalAndWaitAllFrames();
-		WaitForGpuIdle();
-		for (auto& frameRes : FrameResourcesArray)
-		{
-			frameRes.InputCopyResources.CommandAllocator->Reset();
-			frameRes.OutputCopyResources.CommandAllocator->Reset();
-		}
-	}
-
-	void DestroyFrameResources()
-	{
-		WaitForGpuIdle();
-		for (uint32_t i = 0; i < FramesInFlight; i++)
-		{
-			FrameResourcesArray[i] = {};
-		}
+		RetiredEpochs.clear();
+		FrameResourcesArray = {};
+		return true;
 	}
 
 	static uint64_t GetInputSignalValue(uint64_t frameNumber) { return frameNumber * 2 + 2; }
@@ -406,6 +443,7 @@ private:
 
 	struct WorkSubmitInfo
 	{
+		uint64_t FrameNumber;
 		ID3D12Fence* WaitFence;
 		uint64_t WaitValue;
 		ID3D12Fence* SignalFence;
@@ -415,6 +453,7 @@ private:
 	WorkSubmitInfo PrepareSubmitInfo(uint64_t frameNumber, bool inputResources)
 	{
 		return WorkSubmitInfo{
+			.FrameNumber = frameNumber,
 			.WaitFence = inputResources ? Sync->InputFence.Fence.Get() : Sync->OutputFence.Fence.Get(),
 			.WaitValue = inputResources ? GetInputWaitValue(frameNumber) : GetOutputWaitValue(frameNumber),
 			.SignalFence = inputResources ? Sync->InputFence.Fence.Get() : Sync->OutputFence.Fence.Get(),
@@ -425,17 +464,43 @@ private:
 	void SubmitWork(FrameResources::WorkGroupResources& workGroupRes, WorkSubmitInfo submitInfo)
 	{
 		Must(SUCCEEDED(workGroupRes.CommandList->Close()), "Failed to close command list");
-		
+
 		// Wait on fence before executing
 		Must(SUCCEEDED(CommandQueue->Wait(submitInfo.WaitFence, submitInfo.WaitValue)),
 			"Failed to wait on fence");
-		
+
 		ID3D12CommandList* cmdLists[] = {workGroupRes.CommandList.Get()};
 		CommandQueue->ExecuteCommandLists(1, cmdLists);
-		
+
 		// Signal after execution
 		Must(SUCCEEDED(CommandQueue->Signal(submitInfo.SignalFence, submitInfo.SignalValue)),
 			"Failed to signal fence");
+		workGroupRes.SubmittedFrame = submitInfo.FrameNumber;
+	}
+
+	// Advances one timeline for a frame that gets no work of its own: a frame Nodos cancelled, or
+	// one this app gave up on. Same wait and signal as a real frame, minus the list, so it lands
+	// in order behind everything already queued. A host signal would land first, and an older
+	// queued signal running later would pull the fence back down below it.
+	void SubmitEmptyWork(uint64_t frameNumber, bool inputResources)
+	{
+		auto submitInfo = PrepareSubmitInfo(frameNumber, inputResources);
+		Must(SUCCEEDED(CommandQueue->Wait(submitInfo.WaitFence, submitInfo.WaitValue)), "Failed to wait on fence");
+		Must(SUCCEEDED(CommandQueue->Signal(submitInfo.SignalFence, submitInfo.SignalValue)), "Failed to signal fence");
+		(inputResources ? Sync->LastInputFrameNumber : Sync->LastOutputFrameNumber) = frameNumber;
+	}
+
+	// Gives up on a frame whose lists cannot be recorded because the queue is stuck behind a
+	// value Nodos has not produced. Advancing the timelines anyway keeps Nodos's queue from
+	// stranding on this frame once it answers again, and returning lets the next PreExecute
+	// process the IDLE that ends the epoch.
+	void SkipFrame(uint64_t frameNumber)
+	{
+		std::cerr << "GPU work for an earlier frame did not finish in time; skipping frame " << frameNumber
+				  << std::endl;
+		SubmitEmptyWork(frameNumber, true);
+		SubmitEmptyWork(frameNumber, false);
+		Sync->SkippedFrame = frameNumber;
 	}
 
 	void DestroyFence(ExportedFence& exportedFence)
@@ -462,6 +527,12 @@ struct NodosSceneInterface::InternalState : public nos::app::IApp
 	ComPtr<ID3D12Device> Device;
 	ComPtr<ID3D12CommandQueue> CommandQueue;
 
+	// Set on the API thread right after the IDLE that follows a lost connection is queued for the
+	// node, so the epoch drain knows the peer can no longer produce anything and skips waiting.
+	std::atomic<bool> ConnectionLost = false;
+	void OnConnected_ApiThread() override { ConnectionLost = false; }
+	void OnDisconnected_ApiThread() override { ConnectionLost = true; }
+
 	std::string NodosSdkDllPath;
 	std::string NodosAppKey = "DX-SceneRenderer";
 	std::unique_ptr<WinProcLoader> NodosProcLoader;
@@ -480,7 +551,7 @@ struct NodosSceneInterface::InternalState : public nos::app::IApp
 	void PreFrame()
 	{
 		if (!Nodos)
-			return;
+			return false;
 
 		// PreExecute returns false when not synced
 		if (!Nodos->PreExecute(nullptr))
@@ -906,7 +977,13 @@ inline void SceneAppNode::OnImport(nos::fb::Node const& appNode)
 inline void SceneAppNode::OnRemoved()
 {
 	assert(!Sync);
-	DestroyFrameResources();
+	if (!DestroyFrameResources())
+	{
+		// The parked copies reference the textures too.
+		for (auto* texture : {&OutColor, &OutDepth, &OutVideoMask, &InColor})
+			LeakOnPurpose(std::move(*texture));
+		return;
+	}
 	DestroyExportedTexture(OutColor);
 	DestroyExportedTexture(OutDepth);
 	DestroyExportedTexture(OutVideoMask);
@@ -954,9 +1031,9 @@ inline void SceneAppNode::OnPinValueChanges(std::unordered_map<nos::uuid, nos::B
 
 // AppExecuteStart(reset=true) cancels requests Nodos had already sent, but nos.sys.vulkan queued
 // the copies for those frames before the message went out, and they are waiting on values only
-// this app can produce. Hand them over so nothing on either side stays parked. This is not an
-// epoch boundary: the fences stay, and the frames here are all past the last one submitted, so
-// signalling them can never drop a value below one of our own queued signals.
+// this app can produce. Advance the timelines for them so nothing on either side stays parked.
+// This is a path restart, not an epoch boundary: the fences stay, and Nodos keeps counting from
+// where it stopped.
 inline void SceneAppNode::OnSkippedExecution(void* frameCtx, nos::app::SkippedExecutionInfo const& info)
 {
 	if (!Sync)
@@ -964,8 +1041,8 @@ inline void SceneAppNode::OnSkippedExecution(void* frameCtx, nos::app::SkippedEx
 
 	for (uint64_t frameNumber = info.FirstSkippedFrame; frameNumber <= info.LastSkippedFrame; frameNumber++)
 	{
-		SignalFenceHost(Sync->InputFence.Fence.Get(), GetInputSignalValue(frameNumber));
-		SignalFenceHost(Sync->OutputFence.Fence.Get(), GetOutputSignalValue(frameNumber));
+		SubmitEmptyWork(frameNumber, true);
+		SubmitEmptyWork(frameNumber, false);
 	}
 }
 
@@ -1001,11 +1078,14 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 	AppInterface.Renderer.SetCameraTarget(center);
 	AppInterface.Renderer.GetCamera().FovY = XMConvertToRadians(Track.fov);
 
-	auto inputWorkGroupResources = BeginNewFrameForWorkGroupResources(*Sync, frameCounter, true);
-	
 	if (OutputResolutionChanged)
 	{
-		WaitForGpuIdle();
+		// The textures about to be replaced may still be read by queued copies.
+		if (!WaitForGpuIdle(FrameWaitTimeoutMs))
+		{
+			SkipFrame(frameCounter);
+			return;
+		}
 
 		AppInterface.Renderer.Resize(OutputWidth, OutputHeight);
 		
@@ -1060,15 +1140,21 @@ inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
 	DirectX::XMFLOAT3 p3(-QuadP3.y() / 100.0f, QuadP3.z() / 100.0f, -QuadP3.x() / 100.0f);
 	AppInterface.Renderer.SetTexturedQuadCorners(p0, p1, p2, p3);
 
-	InputCopies(inputWorkGroupResources.CommandList.Get(), frameCounter);
+	auto* inputWorkGroupResources = BeginNewFrameForWorkGroupResources(frameCounter, true);
+	if (!inputWorkGroupResources)
+	{
+		SkipFrame(frameCounter);
+		return;
+	}
+	InputCopies(inputWorkGroupResources->CommandList.Get(), frameCounter);
 	auto submitInfo = PrepareSubmitInfo(frameCounter, true);
-	
+
 #if NOS_ENABLE_SYNC_LOGS
 	std::cout << "Submitting input work for frame " << frameCounter << " with wait value " << submitInfo.WaitValue
 		<< " and signal value " << submitInfo.SignalValue << std::endl;
 #endif
-	
-	SubmitWork(inputWorkGroupResources, submitInfo);
+
+	SubmitWork(*inputWorkGroupResources, submitInfo);
 	Sync->LastInputFrameNumber = frameCounter;
 }
 
@@ -1079,18 +1165,78 @@ inline void SceneAppNode::OnPostExecute(void* frameCtx, uint64_t frameCounter)
 		assert(Sync);
 		return;
 	}
+	// Both timelines were already advanced for this frame in OnPreExecute.
+	if (Sync->SkippedFrame == frameCounter)
+		return;
 
-	auto outputWorkGroupResources = BeginNewFrameForWorkGroupResources(*Sync, frameCounter, false);
-	OutputCopies(outputWorkGroupResources.CommandList.Get(), frameCounter);
+	auto* outputWorkGroupResources = BeginNewFrameForWorkGroupResources(frameCounter, false);
+	if (!outputWorkGroupResources)
+	{
+		// The input work went in, so only the output timeline is still owed for this frame.
+		std::cerr << "GPU work for an earlier frame did not finish in time; skipping output copies of frame "
+				  << frameCounter << std::endl;
+		SubmitEmptyWork(frameCounter, false);
+		return;
+	}
+	OutputCopies(outputWorkGroupResources->CommandList.Get(), frameCounter);
 	auto submitInfo = PrepareSubmitInfo(frameCounter, false);
-	
+
 #if NOS_ENABLE_SYNC_LOGS
 	std::cout << "Submitting output work for frame " << frameCounter << " with wait value " << submitInfo.WaitValue
 		<< " and signal value " << submitInfo.SignalValue << std::endl;
 #endif
-	
-	SubmitWork(outputWorkGroupResources, submitInfo);
+
+	SubmitWork(*outputWorkGroupResources, submitInfo);
 	Sync->LastOutputFrameNumber = frameCounter;
+}
+
+// Ends a synchronization epoch. On an orderly exit Nodos retires its side as well: it raises the
+// values its queue is parked on and drains, and the values our queue is parked on arrive as that
+// drain runs. So first only wait; raising anything here would race that retirement. A peer that
+// is gone, or that did not drain in the time it gives itself, gets its values raised by us
+// instead. If the queue still does not drain, the fences and the lists that reference them stay
+// alive, because the GPU may still reference them, and the next epoch gets a fresh ring.
+inline void SceneAppNode::DrainSyncEpoch()
+{
+	bool drained = false;
+	if (AppInterface.ConnectionLost)
+	{
+		std::cerr << "Nodos connection lost; releasing the sync epoch's waits ourselves" << std::endl;
+	}
+	else
+	{
+		drained = WaitForGpuIdle(EpochDrainTimeoutMs);
+		if (!drained)
+			std::cerr << "Nodos did not drain the sync epoch in time; releasing its waits ourselves" << std::endl;
+	}
+	if (!drained)
+	{
+		ReleaseParkedWaits(FrameWaitTimeoutMs);
+		drained = WaitForGpuIdle(EpochDrainTimeoutMs);
+	}
+
+	if (drained)
+	{
+		// Nodos restarts its frame counter at 0 for the next epoch, so the ring starts over too.
+		for (auto& frameRes : FrameResourcesArray)
+		{
+			for (auto* workRes : {&frameRes.InputCopyResources, &frameRes.OutputCopyResources})
+			{
+				workRes->CommandAllocator->Reset();
+				workRes->SubmittedFrame.reset();
+			}
+		}
+		DestroyFence(Sync->InputFence);
+		DestroyFence(Sync->OutputFence);
+	}
+	else
+	{
+		std::cerr << "The sync epoch's GPU work never finished; keeping its fences and command lists alive"
+				  << std::endl;
+		RetiredEpochs.push_back({std::move(Sync->InputFence), std::move(Sync->OutputFence), std::move(FrameResourcesArray)});
+		CreateFrameResources();
+	}
+	Sync = std::nullopt;
 }
 
 void SceneAppNode::OnExecutionStateChanged(nos::app::ExecutionState newState, nos::app::ExecutionState oldState)
@@ -1099,9 +1245,6 @@ void SceneAppNode::OnExecutionStateChanged(nos::app::ExecutionState newState, no
 	{
 		assert(Sync);
 		DrainSyncEpoch();
-		DestroyFence(Sync->InputFence);
-		DestroyFence(Sync->OutputFence);
-		Sync = std::nullopt;
 	}
 
 	if (newState == nos::app::ExecutionState::SYNCED)
