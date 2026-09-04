@@ -177,6 +177,7 @@ public:
 	void OnPreExecute(void* frameCtx, uint64_t frameNumber) override;
 	void OnPostExecute(void* frameCtx, uint64_t frameNumber) override;
 	void OnExecutionStateChanged(nos::app::ExecutionState newState, nos::app::ExecutionState oldState) override;
+	void OnExecuteInfoChanged(nos::app::AppExecuteInfo const* appExecuteInfo) override;
 
 private:
 	NodosSceneInterface::InternalState& AppInterface;
@@ -417,7 +418,7 @@ private:
 			LeakOnPurpose(std::move(RetiredEpochs));
 			LeakOnPurpose(std::move(FrameResourcesArray));
 			LeakOnPurpose(std::move(DrainFence));
-			return;
+			return false;
 		}
 		for (auto& epoch : RetiredEpochs)
 		{
@@ -538,23 +539,29 @@ struct NodosSceneInterface::InternalState : public nos::app::IApp
 	std::unique_ptr<WinProcLoader> NodosProcLoader;
 	std::unique_ptr<nos::app::NodosCommunicator> Nodos;
 
+	// Scene time per frame Nodos requests, from AppExecuteInfo. Empty in free run or without a node.
+	std::optional<float> FixedDeltaSeconds;
+
 	nos::app::IAppNode& CreateAppNode_ApiThread() override { return *(new SceneAppNode(*this)); }
 	void DestroyAppNode(nos::app::IAppNode& appNode) override
 	{
 		delete static_cast<SceneAppNode*>(&appNode);
+		FixedDeltaSeconds = std::nullopt;
 	}
 
 	bool IsNodosCameraActive = false;
 	DirectX::XMFLOAT3 StoredCameraPosition;
 	DirectX::XMFLOAT3 StoredCameraTarget;
 
-	void PreFrame()
+	// Returns true when Nodos requested this frame.
+	bool PreFrame()
 	{
 		if (!Nodos)
 			return false;
 
-		// PreExecute returns false when not synced
-		if (!Nodos->PreExecute(nullptr))
+		// PreExecute returns false when not synced, or when Nodos did not request this frame
+		bool requested = Nodos->PreExecute(nullptr);
+		if (!requested)
 		{
 			// Not synced - restore camera if was using Nodos camera
 			if (IsNodosCameraActive)
@@ -574,6 +581,7 @@ struct NodosSceneInterface::InternalState : public nos::app::IApp
 				IsNodosCameraActive = true;
 			}
 		}
+		return requested;
 	}
 
 	void PostFrame() 
@@ -688,9 +696,14 @@ void NodosSceneInterface::Initialize(ID3D12Device* device, ID3D12CommandQueue* c
 	m_InternalState->Nodos = std::move(*nodosCommunicator);
 }
 
-void NodosSceneInterface::PreFrame()
+bool NodosSceneInterface::PreFrame()
 {
-	m_InternalState->PreFrame();
+	return m_InternalState->PreFrame();
+}
+
+std::optional<float> NodosSceneInterface::GetFixedDeltaSeconds() const
+{
+	return m_InternalState->FixedDeltaSeconds;
 }
 
 void NodosSceneInterface::PostFrame()
@@ -1027,6 +1040,17 @@ inline void SceneAppNode::OnPinValueChanges(std::unordered_map<nos::uuid, nos::B
 			QuadP3 = *reinterpret_cast<const nos::fb::vec3*>(data.Data());
 		}
 	}
+}
+
+// Nodos paces a synced app. Each frame it requests stands for this much scene time, whatever
+// the wall clock says; a zero denominator means free run.
+inline void SceneAppNode::OnExecuteInfoChanged(nos::app::AppExecuteInfo const* appExecuteInfo)
+{
+	auto const* delta = appExecuteInfo->delta_seconds();
+	if (!delta || delta->y() == 0)
+		AppInterface.FixedDeltaSeconds = std::nullopt;
+	else
+		AppInterface.FixedDeltaSeconds = static_cast<float>(delta->x()) / static_cast<float>(delta->y());
 }
 
 // AppExecuteStart(reset=true) cancels requests Nodos had already sent, but nos.sys.vulkan queued

@@ -12,6 +12,7 @@
 #include <wrl/client.h>
 #include <memory>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 using Microsoft::WRL::ComPtr;
@@ -35,9 +36,14 @@ public:
 	// Initialize with DX12 device and command queue
 	void Initialize(ID3D12Device* device, ID3D12CommandQueue* commandQueue, DXGI_FORMAT outputFormat);
 	
-	// Frame lifecycle
-	void PreFrame();
+	// Frame lifecycle. PreFrame blocks until Nodos requests a frame while synced and returns
+	// whether it did.
+	bool PreFrame();
 	void PostFrame();
+
+	// Scene time each frame Nodos requests stands for, as sent by Nodos. Empty while Nodos runs
+	// the app free-running, or when no node is present.
+	std::optional<float> GetFixedDeltaSeconds() const;
 	
 	// Resize handling
 	void OnResize(uint32_t width, uint32_t height);

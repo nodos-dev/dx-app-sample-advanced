@@ -87,6 +87,7 @@ struct SimpleApp
 	std::unique_ptr<nos::dxapp::SceneRenderer> SceneRenderer;
 	std::unique_ptr<nos::dxapp::NodosSceneInterface> NodosInterface;
 	float Time = 0.0f;
+	bool NodosFrame = false;
 
 	SimpleApp(HWND windowHandle, int width, int height, bool vsyncEnabled, std::optional<uint32_t> gpuIndex, const std::string& sdkDllPath) :
 		Window{width, height, windowHandle},
@@ -346,6 +347,25 @@ struct SimpleApp
 		FenceValues[SwapChainFrameIndex] = currentFenceValue + 1;
 	}
 
+	// Nodos PreFrame: while synced this blocks until Nodos requests a frame, and applies the
+	// track to the camera.
+	void BeginFrame()
+	{
+		NodosFrame = NodosInterface && NodosInterface->PreFrame();
+	}
+
+	// While Nodos drives the app the scene's time belongs to Nodos: each frame it requests
+	// stands for the delta it supplied, and a repaint it did not request stands for nothing.
+	// Without a fixed delta (free run) or without Nodos, wall-clock time is used.
+	float FrameDeltaSeconds(float wallClockDeltaSeconds) const
+	{
+		if (!NodosInterface || !NodosInterface->IsSynced())
+			return wallClockDeltaSeconds;
+		if (!NodosFrame)
+			return 0.0f;
+		return NodosInterface->GetFixedDeltaSeconds().value_or(wallClockDeltaSeconds);
+	}
+
 	void UpdateScene(float deltaTime)
 	{
 		Time += deltaTime;
@@ -379,10 +399,6 @@ struct SimpleApp
 
 	void Render()
 	{
-		// Nodos PreFrame (handles input sync and camera updates)
-		if (NodosInterface)
-			NodosInterface->PreFrame();
-
 		// If not synced with Nodos, ensure renderer is at swapchain resolution
 		if (!NodosInterface || !NodosInterface->IsSynced())
 		{
@@ -554,7 +570,8 @@ int SimpleAppMain(int windowWidth, int windowHeight, std::optional<uint32_t> gpu
 			}
 		}
 
-		app.UpdateScene(deltaTime);
+		app.BeginFrame();
+		app.UpdateScene(app.FrameDeltaSeconds(deltaTime));
 		app.Render();
 	}
 
