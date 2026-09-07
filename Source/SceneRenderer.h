@@ -77,7 +77,12 @@ public:
 	SceneRenderer();
 	~SceneRenderer();
 
-	void Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, uint32_t width, uint32_t height);
+	// framesInFlight is how many recorded frames the GPU may still be reading while the CPU
+	// records the next one; the per-frame constants get one slot each.
+	void Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, uint32_t width, uint32_t height, uint32_t framesInFlight);
+	// Names the slot this frame's constants go into. The caller must know the GPU has finished
+	// the frame that last used it, which is what a swapchain's per-back-buffer fence proves.
+	void BeginFrame(uint32_t frameSlot);
 	void Render(ID3D12GraphicsCommandList* cmdList);
 	void Resize(uint32_t width, uint32_t height);
 
@@ -127,8 +132,6 @@ private:
 	void CreateSRVHeap(ID3D12Device* device);
 	void UpdateQuadVertexBuffer();
 
-	void UpdateConstantBuffer(size_t objectIndex);
-
 	ComPtr<ID3D12Device> m_Device;
 	ComPtr<ID3D12RootSignature> m_RootSignature;
 	ComPtr<ID3D12PipelineState> m_PipelineState;
@@ -162,11 +165,20 @@ private:
 	uint32_t m_PlaneIndexCount = 0;
 	uint32_t m_QuadIndexCount = 0;
 
-	// Constant buffers (one per object for simplicity)
+	// Constant buffers: one region per object, and one set of regions per frame in flight. The
+	// GPU reads a frame's regions when its list runs, which after a stall can be well after the
+	// CPU has recorded the next frame; a single set would then hand a frame the camera of the
+	// one after it.
 	static constexpr size_t MAX_OBJECTS = 256;
 	ComPtr<ID3D12Resource> m_ConstantBuffer;
 	uint8_t* m_ConstantBufferData = nullptr;
 	uint32_t m_ConstantBufferSize = 0;
+	uint32_t m_FramesInFlight = 1;
+	uint32_t m_FrameSlot = 0;
+	size_t ConstantBufferOffset(size_t objectIndex) const
+	{
+		return (static_cast<size_t>(m_FrameSlot) * MAX_OBJECTS + objectIndex) * m_ConstantBufferSize;
+	}
 
 	ComPtr<ID3D12Resource> m_OutputTexture;
 	ComPtr<ID3D12Resource> m_DepthStencilBuffer;

@@ -262,7 +262,7 @@ struct SimpleApp
 	void CreateScene(const std::string& sdkDllPath)
 	{
 		SceneRenderer = std::make_unique<nos::dxapp::SceneRenderer>();
-		SceneRenderer->Initialize(Device.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, Window.Width, Window.Height);
+		SceneRenderer->Initialize(Device.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, Window.Width, Window.Height, BACK_BUFFER_COUNT);
 
 		// Set up camera
 		SceneRenderer->SetCameraPosition({0.0f, 3.0f, -7.0f});
@@ -414,6 +414,10 @@ struct SimpleApp
 		// Reset command allocator and list
 		Must(CmdAllocators[SwapChainFrameIndex]->Reset());
 		Must(CmdList->Reset(CmdAllocators[SwapChainFrameIndex].Get(), nullptr));
+
+		// MoveToNextFrame proved the GPU is done with everything that used this back buffer index,
+		// so the renderer's constants for that index are free too.
+		SceneRenderer->BeginFrame(SwapChainFrameIndex);
 
 		// Render scene to SceneRenderer's internal texture
 		SceneRenderer->Render(CmdList.Get());

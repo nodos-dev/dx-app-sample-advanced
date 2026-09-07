@@ -299,12 +299,13 @@ SceneRenderer::~SceneRenderer()
 	}
 }
 
-void SceneRenderer::Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, uint32_t width, uint32_t height)
+void SceneRenderer::Initialize(ID3D12Device* device, DXGI_FORMAT outputFormat, uint32_t width, uint32_t height, uint32_t framesInFlight)
 {
 	m_Device = device;
 	m_OutputFormat = outputFormat;
 	m_Width = width;
 	m_Height = height;
+	m_FramesInFlight = framesInFlight;
 
 	m_Camera.AspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
@@ -917,7 +918,7 @@ void SceneRenderer::CreateGeometryBuffers(ID3D12Device* device)
 void SceneRenderer::CreateConstantBuffer(ID3D12Device* device)
 {
 	m_ConstantBufferSize = (sizeof(ConstantBufferData) + 255) & ~255;
-	UINT totalSize = m_ConstantBufferSize * MAX_OBJECTS;
+	UINT totalSize = m_ConstantBufferSize * MAX_OBJECTS * m_FramesInFlight;
 
 	auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 	auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer(totalSize);
@@ -1181,11 +1182,11 @@ void SceneRenderer::Render(ID3D12GraphicsCommandList* cmdList)
 		cbData.CameraPosition = m_Camera.Position;
 		cbData.ObjectColor = obj.Color;
 
-		// Copy to constant buffer
-		memcpy(m_ConstantBufferData + i * m_ConstantBufferSize, &cbData, sizeof(ConstantBufferData));
+		// Copy to this frame's slot of the constant buffer
+		memcpy(m_ConstantBufferData + ConstantBufferOffset(i), &cbData, sizeof(ConstantBufferData));
 
 		// Set constant buffer view
-		D3D12_GPU_VIRTUAL_ADDRESS cbvAddress = m_ConstantBuffer->GetGPUVirtualAddress() + i * m_ConstantBufferSize;
+		D3D12_GPU_VIRTUAL_ADDRESS cbvAddress = m_ConstantBuffer->GetGPUVirtualAddress() + ConstantBufferOffset(i);
 		cmdList->SetGraphicsRootConstantBufferView(0, cbvAddress);
 
 		// Set texture for textured quads
@@ -1265,11 +1266,8 @@ void SceneRenderer::RenderVideoMask(ID3D12GraphicsCommandList* cmdList)
 		if (obj.ObjectType != SceneObject::Type::TexturedQuad)
 			continue;
 
-		// Update constant buffer for this object
-		UpdateConstantBuffer(i);
-
-		// Set constant buffer
-		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = m_ConstantBuffer->GetGPUVirtualAddress() + (i * m_ConstantBufferSize);
+		// Bind the constants Render wrote for this object in this frame's slot
+		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = m_ConstantBuffer->GetGPUVirtualAddress() + ConstantBufferOffset(i);
 		cmdList->SetGraphicsRootConstantBufferView(0, cbAddress);
 
 		// Draw textured quad
@@ -1471,9 +1469,9 @@ void SceneRenderer::ClearObjects()
 	m_Objects.clear();
 }
 
-void SceneRenderer::UpdateConstantBuffer(size_t objectIndex)
+void SceneRenderer::BeginFrame(uint32_t frameSlot)
 {
-	// This method can be extended for per-frame updates if needed
+	m_FrameSlot = frameSlot % m_FramesInFlight;
 }
 
 }
