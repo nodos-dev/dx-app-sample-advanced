@@ -173,7 +173,6 @@ public:
 	void OnImport(nos::fb::Node const& appNode) override;
 	void OnRemoved() override;
 	void OnPinValueChanges(std::unordered_map<nos::uuid, nos::Buffer> const& pinValues) override;
-	void OnSkippedExecution(void* frameCtx, nos::app::SkippedExecutionInfo const& info) override;
 	void OnPreExecute(void* frameCtx, uint64_t frameNumber) override;
 	void OnPostExecute(void* frameCtx, uint64_t frameNumber) override;
 	void OnExecutionStateChanged(nos::app::ExecutionState newState, nos::app::ExecutionState oldState) override;
@@ -479,10 +478,9 @@ private:
 		workGroupRes.SubmittedFrame = submitInfo.FrameNumber;
 	}
 
-	// Advances one timeline for a frame that gets no work of its own: a frame Nodos cancelled, or
-	// one this app gave up on. Same wait and signal as a real frame, minus the list, so it lands
-	// in order behind everything already queued. A host signal would land first, and an older
-	// queued signal running later would pull the fence back down below it.
+	// Advances one timeline for a frame this app gave up on. Same wait and signal as a real frame,
+	// minus the list, so it lands in order behind everything already queued. A host signal would
+	// land first, and an older queued signal running later would pull the fence back down below it.
 	void SubmitEmptyWork(uint64_t frameNumber, bool inputResources)
 	{
 		auto submitInfo = PrepareSubmitInfo(frameNumber, inputResources);
@@ -1051,23 +1049,6 @@ inline void SceneAppNode::OnExecuteInfoChanged(nos::app::AppExecuteInfo const* a
 		AppInterface.FixedDeltaSeconds = std::nullopt;
 	else
 		AppInterface.FixedDeltaSeconds = static_cast<float>(delta->x()) / static_cast<float>(delta->y());
-}
-
-// AppExecuteStart(reset=true) cancels requests Nodos had already sent, but nos.sys.vulkan queued
-// the copies for those frames before the message went out, and they are waiting on values only
-// this app can produce. Advance the timelines for them so nothing on either side stays parked.
-// This is a path restart, not an epoch boundary: the fences stay, and Nodos keeps counting from
-// where it stopped.
-inline void SceneAppNode::OnSkippedExecution(void* frameCtx, nos::app::SkippedExecutionInfo const& info)
-{
-	if (!Sync)
-		return;
-
-	for (uint64_t frameNumber = info.FirstSkippedFrame; frameNumber <= info.LastSkippedFrame; frameNumber++)
-	{
-		SubmitEmptyWork(frameNumber, true);
-		SubmitEmptyWork(frameNumber, false);
-	}
 }
 
 inline void SceneAppNode::OnPreExecute(void* frameCtx, uint64_t frameCounter)
